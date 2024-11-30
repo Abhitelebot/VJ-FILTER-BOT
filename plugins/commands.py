@@ -535,7 +535,7 @@ async def start(client, message):
                     ],[
                         InlineKeyboardButton("How To Open Link & Verify", url=VERIFY_TUTORIAL)
                     ],[
-                        InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', callback_data='subscription')
+                        InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url='https://telegram.me/{temp.U_NAME}?start=subscription')
                     ]]
                     await message.reply_text(
                         text="<b>You are not verified !\nKindly verify to continue !</b>",
@@ -606,7 +606,7 @@ async def start(client, message):
             ],[
                 InlineKeyboardButton("How To Open Link & Verify", url=VERIFY_TUTORIAL)
             ],[
-                InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', callback_data='subscription')
+                InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url='https://telegram.me/{temp.U_NAME}?start=subscription')
             ]]
             await message.reply_text(
                 text="<b>You are not verified !\nKindly verify to continue !</b>",
