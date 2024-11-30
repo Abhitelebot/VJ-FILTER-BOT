@@ -397,8 +397,24 @@ async def start(client, message):
         await asyncio.sleep(300)
         await k.edit("<b>Your message is successfully deleted!!!</b>")
         return
-        
-    
+
+    elif data.startswith("subscription"):
+    # Sending a formatted subscription message
+        await query.message.reply_text(
+            """
+            <b>Refer your link to your friends, family, channels, and groups to get free premium for {REFERAL_PREMEIUM_TIME}!
+            
+            Referral Link: https://telegram.me/{temp.U_NAME}?start=VJ-{message.from_user.id}
+            
+            If {REFERAL_COUNT} unique users start the bot with your referral link, you will automatically be added to the premium list.
+            
+            Buy a paid plan here: /plan</b>
+            """, 
+            parse_mode="HTML"
+        )
+        return 
+
+
     elif data.startswith("short"):
         user = message.from_user.id
         chat_id = temp.SHORT.get(user)
