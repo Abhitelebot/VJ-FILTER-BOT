@@ -400,16 +400,7 @@ async def start(client, message):
 
     elif data.startswith("subscription"):
     # Sending a formatted subscription message
-        await query.message.reply_text(
-            """
-            <b>Refer your link to your friends, family, channels, and groups to get free premium for {REFERAL_PREMEIUM_TIME}!
-            
-            Referral Link: https://telegram.me/{temp.U_NAME}?start=VJ-{message.from_user.id}
-            
-            If {REFERAL_COUNT} unique users start the bot with your referral link, you will automatically be added to the premium list.
-            
-            Buy a paid plan here: /plan</b>
-            """, 
+        await query.message.reply_text(f"<b>Refer your link to your friends, family, channels, and groups to get free premium for {REFERAL_PREMEIUM_TIME}!\n\nReferral Link: https://telegram.me/{temp.U_NAME}?start=VJ-{message.from_user.id}\n\nIf {REFERAL_COUNT} unique users start the bot with your referral link, you will automatically be added to the premium list.\n\nBuy a paid plan here: /plan</b>", 
             parse_mode="HTML"
         )
         return 
@@ -535,7 +526,7 @@ async def start(client, message):
                     ],[
                         InlineKeyboardButton("How To Open Link & Verify", url=VERIFY_TUTORIAL)
                     ],[
-                        InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url='https://telegram.me/{temp.U_NAME}?start=subscription')
+                        InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url=f'https://telegram.me/{temp.U_NAME}?start=subscription')
                     ]]
                     await message.reply_text(
                         text="<b>You are not verified !\nKindly verify to continue !</b>",
@@ -606,7 +597,7 @@ async def start(client, message):
             ],[
                 InlineKeyboardButton("How To Open Link & Verify", url=VERIFY_TUTORIAL)
             ],[
-                InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url='https://telegram.me/{temp.U_NAME}?start=subscription')
+                InlineKeyboardButton('🎗️ ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ', url=f'https://telegram.me/{temp.U_NAME}?start=subscription')
             ]]
             await message.reply_text(
                 text="<b>You are not verified !\nKindly verify to continue !</b>",
