@@ -400,10 +400,14 @@ async def start(client, message):
 
     elif data.startswith("subscription"):
     # Sending a formatted subscription message
-        await query.message.reply_text(f"<b>Refer your link to your friends, family, channels, and groups to get free premium for {REFERAL_PREMEIUM_TIME}!\n\nReferral Link: https://telegram.me/{temp.U_NAME}?start=VJ-{message.from_user.id}\n\nIf {REFERAL_COUNT} unique users start the bot with your referral link, you will automatically be added to the premium list.\n\nBuy a paid plan here: /plan</b>", 
-            parse_mode="HTML"
-        )
-        return 
+        try:
+            await query.message.reply_text(f"<b>Refer your link to your friends, family, channels, and groups to get free premium for {REFERAL_PREMEIUM_TIME}!\n\nReferral Link: https://telegram.me/{temp.U_NAME}?start=VJ-{message.from_user.id}\n\nIf {REFERAL_COUNT} unique users start the bot with your referral link, you will automatically be added to the premium list.\n\nBuy a paid plan here: /plan</b>", 
+                                           parse_mode="HTML"
+                                          )
+            return 
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
+            await message.reply_text(f"An error occurred: {e}")
 
 
     elif data.startswith("short"):
