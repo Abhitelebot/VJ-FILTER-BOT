@@ -2770,6 +2770,7 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
             search = search.replace("-", " ")
             search = search.replace(":", "")
             search = search.replace(".", "")
+            search = unicodedata.normalize('NFKD', search).encode('ascii', 'ignore').decode('utf-8')
             files, offset, total_results = await get_search_results(message.chat.id ,search, offset=0, filter=True)
             settings = await get_settings(message.chat.id)
             if not files:
