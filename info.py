@@ -91,7 +91,7 @@ NO_RESULTS_MSG = bool(environ.get("NO_RESULTS_MSG", False))
 USE_CAPTION_FILTER = bool(environ.get('USE_CAPTION_FILTER', True))
 
 # Token Verification Info :
-VERIFY = bool(environ.get('VERIFY', True))
+VERIFY = bool(environ.get('VERIFY', False))
 VERIFY_SECOND_SHORTNER = bool(environ.get('VERIFY_SECOND_SHORTNER', False))
 VERIFY_SHORTLINK_URL = environ.get('VERIFY_SHORTLINK_URL', 'seturl.in')
 VERIFY_SHORTLINK_API = environ.get('VERIFY_SHORTLINK_API', '2f3c9a60aec64701e7009ed4cd3ef776c0627345')
@@ -168,3 +168,4 @@ LOG_STR += f"Your current IMDB template is {IMDB_TEMPLATE}"
 # Don't Remove Credit @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot @Tech_VJ
 # Ask Doubt on telegram @KingVJ01
+
