@@ -96,18 +96,28 @@ async def is_subscribed(bot, query):
 async def get_poster(query, bulk=False, id=False, file=None):
     if not id:
         query = (query.strip()).lower()
-        title = query
-        year = re.findall(r'[1-2]\d{3}$', query, re.IGNORECASE)
-        if year:
-            year = list_to_str(year[:1])
-            title = (query.replace(year, "")).strip()
-        elif file is not None:
-            year = re.findall(r'[1-2]\d{3}', file, re.IGNORECASE)
-            if year:
-                year = list_to_str(year[:1]) 
+        # Extract year in parentheses if present, e.g. "kantara (2022)" -> year="2022", title="kantara"
+        year_match = re.search(r'\((19|20)\d{2}\)', query)
+        if year_match:
+            year = year_match.group(0)[1:-1]
+            title = re.sub(r'\s*\((19|20)\d{2}\)', '', query).strip()
         else:
-            year = None
-        movieid = imdb.search_movie(title.lower(), results=10)
+            title = query
+            year = re.findall(r'[1-2]\d{3}$', query, re.IGNORECASE)
+            if year:
+                year = list_to_str(year[:1])
+                title = (query.replace(year, "")).strip()
+            elif file is not None:
+                year = re.findall(r'[1-2]\d{3}', file, re.IGNORECASE)
+                if year:
+                    year = list_to_str(year[:1]) 
+            else:
+                year = None
+        try:
+            movieid = imdb.search_movie(title.lower(), results=10)
+        except Exception as e:
+            logger.error(f"IMDb search error in get_poster: {e}")
+            return None
         if not movieid:
             return None
         if year:
@@ -124,7 +134,11 @@ async def get_poster(query, bulk=False, id=False, file=None):
         movieid = movieid[0].movieID
     else:
         movieid = query
-    movie = imdb.get_movie(movieid)
+    try:
+        movie = imdb.get_movie(movieid)
+    except Exception as e:
+        logger.error(f"IMDb get_movie error in get_poster: {e}")
+        return None
     if not movie:
         return None
     if movie.get("original air date"):
