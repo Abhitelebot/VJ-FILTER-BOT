@@ -248,6 +248,9 @@ def clean_movie_title(filename):
 
 async def load_movie_titles_cache():
     from utils import temp
+    if temp.LOADING_CACHE:
+        return
+    temp.LOADING_CACHE = True
     import time
     start_time = time.time()
     try:
@@ -261,6 +264,8 @@ async def load_movie_titles_cache():
         logger.info(f"Loaded {len(temp.MOVIE_TITLES_CACHE)} unique movie titles into cache in {time.time() - start_time:.2f}s.")
     except Exception as e:
         logger.exception(f"Error loading movie titles cache: {e}")
+    finally:
+        temp.LOADING_CACHE = False
 
 async def find_similar_titles(query_str):
     from utils import temp
@@ -274,7 +279,10 @@ async def find_similar_titles(query_str):
     query_clean_no_year = re.sub(r'\s*\(\d{4}\)', '', query_clean).strip().lower()
         
     if not temp.MOVIE_TITLES_CACHE:
+        if temp.LOADING_CACHE:
+            return []
         try:
+            temp.LOADING_CACHE = True
             cursor = Media.find({}, {"file_name": 1})
             async for doc in cursor:
                 fname = doc.get("file_name") if isinstance(doc, dict) else getattr(doc, "file_name", None)
@@ -284,6 +292,8 @@ async def find_similar_titles(query_str):
                         temp.MOVIE_TITLES_CACHE.add(cleaned)
         except Exception as e:
             logger.error(f"Fallback loading cache failed: {e}")
+        finally:
+            temp.LOADING_CACHE = False
             
     candidates = list(temp.MOVIE_TITLES_CACHE)
     

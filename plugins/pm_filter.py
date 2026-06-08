@@ -2790,7 +2790,7 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
         else:
             return
     else:
-        message = msg.message.reply_to_message  # msg will be callback query
+        message = msg.message.reply_to_message or msg.message  # msg will be callback query
         search, files, offset, total_results = spoll
         settings = await get_settings(message.chat.id)
         await msg.message.delete()
@@ -2798,7 +2798,8 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
     key = f"{message.chat.id}-{message.id}"
     FRESH[key] = search
     temp.GETALL[key] = files
-    temp.SHORT[message.from_user.id] = message.chat.id
+    user_id = message.from_user.id if (message and message.from_user) else (msg.from_user.id if msg.from_user else 0)
+    temp.SHORT[user_id] = message.chat.id
     if settings["button"]:
         btn = [
             [
@@ -2901,69 +2902,97 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
             for file in files:
                 cap += f"<b>\n📁 <a href='https://telegram.me/{temp.U_NAME}?start=files_{file.file_id}'>[{get_size(file.file_size)}] {' '.join(filter(lambda x: not x.startswith('[') and not x.startswith('@') and not x.startswith('www.'), file.file_name.split()))}\n</a></b>"
     else:
+        mention_str = message.from_user.mention if (message and message.from_user) else (msg.from_user.mention if (msg and msg.from_user) else "User")
+        chat_title = message.chat.title if message.chat.title else "PM"
         if settings["button"]:
-            cap = f"<b>Tʜᴇ Rᴇꜱᴜʟᴛꜱ Fᴏʀ ☞ {search}\n\nRᴇǫᴜᴇsᴛᴇᴅ Bʏ ☞ {message.from_user.mention}\n\nʀᴇsᴜʟᴛ sʜᴏᴡ ɪɴ ☞ {remaining_seconds} sᴇᴄᴏɴᴅs\n\nᴘᴏᴡᴇʀᴇᴅ ʙʏ ☞ : {message.chat.title} \n\n⚠️ ᴀꜰᴛᴇʀ 5 ᴍɪɴᴜᴛᴇꜱ ᴛʜɪꜱ ᴍᴇꜱꜱᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇᴅ 🗑️\n\n</b>"
+            cap = f"<b>Tʜᴇ Rᴇꜱᴜʟᴛꜱ Fᴏʀ ☞ {search}\n\nRᴇǫᴜᴇsᴛᴇᴅ Bʏ ☞ {mention_str}\n\nʀᴇsᴜʟᴛ sʜᴏᴡ ɪɴ ☞ {remaining_seconds} sᴇᴄᴏɴᴅs\n\nᴘᴏᴡᴇʀᴇᴅ ʙʏ ☞ : {chat_title} \n\n⚠️ ᴀꜰᴛᴇʀ 5 ᴍɪɴᴜᴛᴇꜱ ᴛʜɪꜱ ᴍᴇꜱꜱᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇᴅ 🗑️\n\n</b>"
         else:
-            cap = f"<b>Tʜᴇ Rᴇꜱᴜʟᴛꜱ Fᴏʀ ☞ {search}\n\nRᴇǫᴜᴇsᴛᴇᴅ Bʏ ☞ {message.from_user.mention}\n\nʀᴇsᴜʟᴛ sʜᴏᴡ ɪɴ ☞ {remaining_seconds} sᴇᴄᴏɴᴅs\n\nᴘᴏᴡᴇʀᴇᴅ ʙʏ ☞ : {message.chat.title} \n\n⚠️ ᴀꜰᴛᴇʀ 5 ᴍɪɴᴜᴛᴇꜱ ᴛʜɪꜱ ᴍᴇꜱꜱᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇᴅ 🗑️\n\n</b>"
+            cap = f"<b>Tʜᴇ Rᴇꜱᴜʟᴛˢ Fᴏʀ ☞ {search}\n\nRᴇǫᴜᴇsᴛᴇᴅ Bʏ ☞ {mention_str}\n\nʀᴇsᴜʟᴛ sʜᴏᴡ ɪɴ ☞ {remaining_seconds} sᴇᴄᴏɴᴅs\n\nᴘᴏᴡᴇʀᴇᴅ ʙʏ ☞ : {chat_title} \n\n⚠️ ᴀꜰᴛᴇʀ 5 ᴍɪɴᴜᴛᴇꜱ ᴛʜɪꜱ ᴍᴇꜱꜱᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇᴅ 🗑️\n\n</b>"
             cap+="<b><u>🍿 Your Movie Files 👇</u></b>\n\n"
             for file in files:
                 cap += f"<b>📁 <a href='https://telegram.me/{temp.U_NAME}?start=files_{file.file_id}'>[{get_size(file.file_size)}] {' '.join(filter(lambda x: not x.startswith('[') and not x.startswith('@') and not x.startswith('www.'), file.file_name.split()))}\n\n</a></b>"
 
     if imdb and imdb.get('poster'):
         try:
-            hehe = await message.reply_photo(photo=imdb.get('poster'), caption=cap, reply_markup=InlineKeyboardMarkup(btn))
-            await reply_msg.delete()
+            if spoll:
+                hehe = await client.send_photo(chat_id=message.chat.id, photo=imdb.get('poster'), caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+            else:
+                hehe = await message.reply_photo(photo=imdb.get('poster'), caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+                try:
+                    await reply_msg.delete()
+                except:
+                    pass
             try:
                 if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await hehe.delete()
-                    await message.delete()
+                    if not spoll:
+                        await message.delete()
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await hehe.delete()
-                await message.delete()
+                if not spoll:
+                    await message.delete()
         except (MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty):
             pic = imdb.get('poster')
             poster = pic.replace('.jpg', "._V1_UX360.jpg") 
-            hmm = await message.reply_photo(photo=poster, caption=cap, reply_markup=InlineKeyboardMarkup(btn))
-            await reply_msg.delete()
+            if spoll:
+                hmm = await client.send_photo(chat_id=message.chat.id, photo=poster, caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+            else:
+                hmm = await message.reply_photo(photo=poster, caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+                try:
+                    await reply_msg.delete()
+                except:
+                    pass
             try:
                if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await hmm.delete()
-                    await message.delete()
+                    if not spoll:
+                        await message.delete()
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await hmm.delete()
-                await message.delete()
+                if not spoll:
+                    await message.delete()
         except Exception as e:
             logger.exception(e) 
-            fek = await reply_msg.edit_text(text=cap, reply_markup=InlineKeyboardMarkup(btn))
+            if spoll:
+                fek = await client.send_message(chat_id=message.chat.id, text=cap, reply_markup=InlineKeyboardMarkup(btn))
+            else:
+                fek = await reply_msg.edit_text(text=cap, reply_markup=InlineKeyboardMarkup(btn))
             try:
                 if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await fek.delete()
-                    await message.delete()
+                    if not spoll:
+                        await message.delete()
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await fek.delete()
-                await message.delete()
+                if not spoll:
+                    await message.delete()
     else:
-        fuk = await reply_msg.edit_text(text=cap, reply_markup=InlineKeyboardMarkup(btn), disable_web_page_preview=True)
+        if spoll:
+            fuk = await client.send_message(chat_id=message.chat.id, text=cap, reply_markup=InlineKeyboardMarkup(btn), disable_web_page_preview=True)
+        else:
+            fuk = await reply_msg.edit_text(text=cap, reply_markup=InlineKeyboardMarkup(btn), disable_web_page_preview=True)
         
         try:
             if settings['auto_delete']:
                 await asyncio.sleep(300)
                 await fuk.delete()
-                await message.delete()
+                if not spoll:
+                    await message.delete()
         except KeyError:
             await save_group_settings(message.chat.id, 'auto_delete', True)
             await asyncio.sleep(300)
             await fuk.delete()
-            await message.delete()
+            if not spoll:
+                await message.delete()
 
 async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     mv_id = msg.id

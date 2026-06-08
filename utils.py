@@ -46,6 +46,7 @@ class temp(object):
     SETTINGS = {}
     IMDB_CAP = {}
     MOVIE_TITLES_CACHE = set()
+    LOADING_CACHE = False
 
 
 async def pub_is_subscribed(bot, query, channel):
