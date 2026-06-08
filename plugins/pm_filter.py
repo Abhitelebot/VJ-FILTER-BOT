@@ -3005,6 +3005,13 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     
     suggestions = await get_web_suggestions(mv_rqst)
     
+    # Fallback to local database cache if web suggestions return empty (e.g. rate limit / no TMDB key)
+    used_fallback = False
+    if not suggestions:
+        from database.ia_filterdb import find_similar_titles
+        suggestions = await find_similar_titles(mv_rqst)
+        used_fallback = True
+    
     def clean_for_ratio(title):
         t = re.sub(r'\s*\(\d{4}\)', '', title).strip().lower()
         t = re.sub(r'[^a-z0-9\s]', '', t)
@@ -3021,8 +3028,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 best_ratio = ratio
                 best_match = title
 
-    # Direct match threshold: if ratio >= 0.95, it's considered an exact/direct match
-    if suggestions and best_ratio >= 0.95:
+    # Direct match threshold: if ratio >= 0.95 and not using local database fallback
+    if suggestions and best_ratio >= 0.95 and not used_fallback:
         status, clean_name = await check_ott_status(best_match)
         import html
         if status == "NOT_RELEASED":
@@ -3045,8 +3052,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             pass
         return
 
-    # If it's a spelling suggestion (0.4 <= best_ratio < 0.95)
-    elif suggestions and best_ratio >= 0.4:
+    # If it's a spelling suggestion (0.4 <= best_ratio < 0.95, or any ratio for local fallback)
+    elif suggestions and (best_ratio >= 0.4 or used_fallback):
         import html
         if best_ratio >= 0.7:
             # Case 1: Wrong spelling (High confidence)
@@ -3086,9 +3093,22 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         return
         
     else:
-        # No matching web titles or similarity is too low
-        msg_text = script.MVE_NOT_FOUND_SPELL
-        k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        # No matching titles (either web or local cache)
+        status, clean_name = await check_ott_status(mv_rqst)
+        import html
+        if status == "NOT_RELEASED":
+            msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        elif status == "NOT_FOUND":
+            msg_text = script.MVE_NOT_FOUND_SPELL
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        else:
+            msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
+            btn = [[
+                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+            ]]
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+            
         await asyncio.sleep(30)
         try:
             await k.delete()
