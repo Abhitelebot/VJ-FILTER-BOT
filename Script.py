@@ -191,6 +191,8 @@ Requests are disabled for unreleased movies."""
 
 You may request it below and our admins will try to upload it soon."""
     
+    MVE_NOT_FOUND_SPELL = """❌ <b>No movie found. Please check spelling.</b>"""
+    
     TOP_ALRT_MSG = """Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ..."""
 
     MELCOW_ENG = """<b>Hᴇʟʟᴏ {} 😍, Aɴᴅ Wᴇʟᴄᴏᴍᴇ Tᴏ {} Gʀᴏᴜᴘ ❤️</b>"""

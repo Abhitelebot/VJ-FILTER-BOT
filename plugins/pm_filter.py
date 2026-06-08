@@ -307,6 +307,9 @@ async def advantage_spoll_choker(bot, query):
                 if status == "NOT_RELEASED":
                     msg_text = script.MVE_NOT_OTT.format(clean_name)
                     k = await query.message.edit(text=msg_text, reply_markup=None)
+                elif status == "NOT_FOUND":
+                    msg_text = script.MVE_NOT_FOUND_SPELL
+                    k = await query.message.edit(text=msg_text, reply_markup=None)
                 else:
                     msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
                     btn = [[
@@ -2968,8 +2971,30 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     from database.ia_filterdb import find_similar_titles
     similar_titles = await find_similar_titles(mv_rqst)
     
+    import difflib
+    import re
+    
+    def clean_for_ratio(title):
+        t = re.sub(r'\s*\(\d{4}\)', '', title).strip().lower()
+        t = re.sub(r'[^a-z0-9\s]', '', t)
+        return re.sub(r'\s+', ' ', t).strip()
+
+    best_ratio = 0
     if similar_titles:
-        msg_text = f"I COULDN'T FIND ANYTHING FOR {mv_rqst.lower()} . DID YOU MEAN ANY OF THESE BELOW :"
+        cleaned_query = clean_for_ratio(mv_rqst)
+        for title in similar_titles:
+            cleaned_title = clean_for_ratio(title)
+            ratio = difflib.SequenceMatcher(None, cleaned_query, cleaned_title).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+
+    if similar_titles and best_ratio >= 0.4:
+        if best_ratio >= 0.7:
+            # Case 1: Wrong spelling (High confidence)
+            msg_text = f"I COULDN'T FIND ANYTHING FOR {mv_rqst.lower()} . DID YOU MEAN ANY OF THESE BELOW :"
+        else:
+            # Case 5: Low confidence match
+            msg_text = "Did you mean?"
             
         btn = [
             [
@@ -3001,13 +3026,20 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 await spell_check_del.delete()
         return
     else:
+        # No matching titles in cache or similarity is too low
         from utils import check_ott_status
         status, clean_name = await check_ott_status(mv_rqst)
         
         if status == "NOT_RELEASED":
+            # Case 4: Movie exists but OTT version not released yet.
             msg_text = script.MVE_NOT_OTT.format(clean_name)
             k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        elif status == "NOT_FOUND":
+            # Case 3: Movie does not exist at all.
+            msg_text = script.MVE_NOT_FOUND_SPELL
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
         else:
+            # Case 2: Movie exists and released on OTT, but not in database.
             msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
             btn = [[
                 InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")

@@ -887,7 +887,8 @@ async def check_imdb_ott_status(movie_title):
                         elif rel_year < datetime.now().year:
                             return "RELEASED", display_name
                 return "RELEASED", display_name
+        else:
+            return "NOT_FOUND", clean_name
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
-        
-    return "RELEASED", clean_name
+        return "NOT_FOUND", clean_name
