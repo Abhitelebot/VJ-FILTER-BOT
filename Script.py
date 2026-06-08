@@ -1,8 +1,3 @@
-# Don't Remove Credit @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot @Tech_VJ
-# Ask Doubt on telegram @KingVJ01
-
-
 class script(object):
     START_TXT = """<b><blockquote>Hᴇʟʟᴏ {}, ᴍʏ ɴᴀᴍᴇ <a href=https://t.me/{}>{}</a></blockquote>
     
@@ -163,30 +158,23 @@ Nᴀᴍᴇ - {}"""
     CUDNT_FND = """ɪ ᴄᴏᴜʟᴅɴ'ᴛ ꜰɪɴᴅ ᴀɴʏᴛʜɪɴɢ ʀᴇʟᴀᴛᴇᴅ ᴛᴏ {}
 ᴅɪᴅ ʏᴏᴜ ᴍᴇᴀɴ ᴀɴʏ ᴏɴᴇ ᴏꜰ ᴛʜᴇꜱᴇ?"""
 
-    I_CUDNT = """<b>sᴏʀʀʏ ɴᴏ ꜰɪʟᴇs ᴡᴇʀᴇ ꜰᴏᴜɴᴅ ꜰᴏʀ ʏᴏᴜʀ ʀᴇǫᴜᴇꜱᴛ 😕
+    I_CUDNT = """❌ Movie / Series Not Available
 
-ᴄʜᴇᴄᴋ ʏᴏᴜʀ sᴘᴇʟʟɪɴɢ ɪɴ ɢᴏᴏɢʟᴇ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ 😃
+The requested content is currently unavailable in our database.
 
-ᴍᴏᴠɪᴇ ʀᴇǫᴜᴇꜱᴛ ꜰᴏʀᴍᴀᴛ 👇
+Please use the button below to submit a request."""
 
-ᴇxᴀᴍᴘʟᴇ : Uncharted or Uncharted 2022 or Uncharted En
+    I_CUD_NT = """❌ Movie / Series Not Available
 
-ꜱᴇʀɪᴇꜱ ʀᴇǫᴜᴇꜱᴛ ꜰᴏʀᴍᴀᴛ 👇
+The requested content is currently unavailable in our database.
 
-ᴇxᴀᴍᴘʟᴇ : Loki S01 or Loki S01E04 or Lucifer S03E24
-
-🚯 ᴅᴏɴᴛ ᴜꜱᴇ ➠ ':(!,./)</b>"""
-
-    I_CUD_NT = """ɪ ᴄᴏᴜʟᴅɴ'ᴛ ꜰɪɴᴅ ᴀɴʏ ᴍᴏᴠɪᴇ ʀᴇʟᴀᴛᴇᴅ ᴛᴏ {}.
-ᴘʟᴇᴀꜱᴇ ᴄʜᴇᴄᴋ ᴛʜᴇ ꜱᴘᴇʟʟɪɴɢ ᴏɴ ɢᴏᴏɢʟᴇ ᴏʀ ɪᴍᴅʙ..."""
+Please use the button below to submit a request."""
     
-    MVE_NT_FND ="""⭕ This Movie Is Not available in my database.....You Can request to our admin to upload
+    MVE_NT_FND = """❌ Movie / Series Not Available
 
-⭕ಈ ಚಲನಚಿತ್ರವು ನನ್ನ ಡೇಟಾಬೇಸ್‌ನಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲ..... ನೀವು ಅಪ್‌ಲೋಡ್ ಮಾಡಲು ನಮ್ಮ ನಿರ್ವಾಹಕರಿಗೆ ವಿನಂತಿಸಬಹುದು
+The requested content is currently unavailable in our database.
 
-⭕ यह मूवी मेरे डेटाबेस में उपलब्ध नहीं है... आप हमारे एडमिन से अपलोड करने का अनुरोध कर सकते हैं
-
-Request Here 👇🏻👇🏻👇🏻"""
+Please use the button below to submit a request."""
     
     TOP_ALRT_MSG = """Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ..."""
 
@@ -733,10 +721,6 @@ OWNER_INFO = """
 • ꜰᴜʟʟ ɴᴀᴍᴇ : ABHI
 • ᴜꜱᴇʀɴᴀᴍᴇ : @ABa2zm</b>"""
 
-
-# Don't Remove Credit @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot @Tech_VJ
-# Ask Doubt on telegram @KingVJ01
 
 
     
