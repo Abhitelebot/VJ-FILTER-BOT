@@ -265,15 +265,17 @@ async def load_movie_titles_cache():
 async def find_similar_titles(query_str):
     from utils import temp
     import difflib
+    import re
+    
     query_clean = clean_movie_title(query_str)
     if not query_clean:
         return []
         
-    query_clean_no_year = re.sub(r'\s*\(\d{4}\)', '', query_clean).strip()
+    query_clean_no_year = re.sub(r'\s*\(\d{4}\)', '', query_clean).strip().lower()
         
     if not temp.MOVIE_TITLES_CACHE:
         try:
-            cursor = Media.find({}, {"file_name": 1}).sort('$natural', -1).limit(2000)
+            cursor = Media.find({}, {"file_name": 1})
             async for doc in cursor:
                 fname = doc.get("file_name")
                 if fname:
@@ -284,22 +286,27 @@ async def find_similar_titles(query_str):
             logger.error(f"Fallback loading cache failed: {e}")
             
     candidates = list(temp.MOVIE_TITLES_CACHE)
-    matches = difflib.get_close_matches(query_clean_no_year, candidates, n=4, cutoff=0.5)
     
-    if matches:
-        base_match = matches[0]
-        base_title_clean = re.sub(r'\s*\(\d{4}\)', '', base_match).strip()
-        if len(base_title_clean) > 3:
-            for cand in candidates:
-                cand_clean = re.sub(r'\s*\(\d{4}\)', '', cand).strip()
-                if cand not in matches and (base_title_clean.lower() in cand_clean.lower() or cand_clean.lower() in base_title_clean.lower()):
-                    matches.append(cand)
-                    
+    # Map cleaned lower title without year to its original cached title
+    candidates_map = {}
+    for cand in candidates:
+        cand_no_year = re.sub(r'\s*\(\d{4}\)', '', cand).strip().lower()
+        if cand_no_year:
+            # Keep the one with year if there are duplicates
+            if cand_no_year not in candidates_map or '(' in cand:
+                candidates_map[cand_no_year] = cand
+                
+    # Perform fuzzy search on candidates without year
+    matches_no_year = difflib.get_close_matches(query_clean_no_year, list(candidates_map.keys()), n=4, cutoff=0.5)
+    
+    # Map back to original titles
+    matches = [candidates_map[m] for m in matches_no_year if m in candidates_map]
+    
+    # Substring matches search
     if not matches:
-        for title in candidates:
-            title_no_year = re.sub(r'\s*\(\d{4}\)', '', title).strip()
-            if query_clean_no_year.lower() in title_no_year.lower() or title_no_year.lower() in query_clean_no_year.lower():
-                matches.append(title)
+        for cand_no_year, original in candidates_map.items():
+            if query_clean_no_year in cand_no_year or cand_no_year in query_clean_no_year:
+                matches.append(original)
                 if len(matches) >= 4:
                     break
                     
