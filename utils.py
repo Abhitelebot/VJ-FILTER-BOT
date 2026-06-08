@@ -773,10 +773,11 @@ async def check_ott_status(movie_title):
     else:
         clean_name = movie_title.strip()
     
-    if not TMDB_API_KEY:
+    tmdb_key = TMDB_API_KEY or "2006d40511cc268e39e263d59cd4ca97"
+    if not tmdb_key:
         return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
         
-    url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
+    url = f"https://api.themoviedb.org/3/search/multi?api_key={tmdb_key}&query={quote(clean_name)}"
     try:
         connector = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(connector=connector) as session:
@@ -949,8 +950,9 @@ async def get_web_suggestions(query_str):
     suggestions = []
     
     # 1. Search TMDB
-    if TMDB_API_KEY:
-        url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
+    tmdb_key = TMDB_API_KEY or "2006d40511cc268e39e263d59cd4ca97"
+    if tmdb_key:
+        url = f"https://api.themoviedb.org/3/search/multi?api_key={tmdb_key}&query={quote(clean_name)}"
         try:
             connector = aiohttp.TCPConnector(ssl=False)
             async with aiohttp.ClientSession(connector=connector) as session:
