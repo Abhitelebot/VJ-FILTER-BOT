@@ -752,7 +752,7 @@ async def check_ott_status(movie_title):
     clean_name = movie_title.strip()
     
     if not TMDB_API_KEY:
-        return await check_imdb_ott_status(movie_title)
+        return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
         
     url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
     try:
@@ -760,11 +760,11 @@ async def check_ott_status(movie_title):
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, timeout=5) as response:
                 if response.status != 200:
-                    return await check_imdb_ott_status(movie_title)
+                    return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
                 data = await response.json()
                 results = data.get("results")
                 if not results:
-                    return await check_imdb_ott_status(movie_title)
+                    return await check_imdb_ott_status(movie_title, fallback_on_error_only=False)
                     
                 first = results[0]
                 media_type = first.get("media_type")
@@ -846,10 +846,10 @@ async def check_ott_status(movie_title):
     except Exception as e:
         logger.error(f"Error checking OTT status on TMDB: {e}")
         
-    return await check_imdb_ott_status(movie_title)
+    return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
 
 
-async def check_imdb_ott_status(movie_title):
+async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
     from utils import imdb as cinemagoer
     import re
     from datetime import datetime
@@ -888,7 +888,10 @@ async def check_imdb_ott_status(movie_title):
                             return "RELEASED", display_name
                 return "RELEASED", display_name
         else:
-            return "NOT_FOUND", clean_name
+            if fallback_on_error_only:
+                return "RELEASED", clean_name
+            else:
+                return "NOT_FOUND", clean_name
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
-        return "NOT_FOUND", clean_name
+        return "RELEASED", clean_name
