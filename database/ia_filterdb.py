@@ -253,7 +253,7 @@ async def load_movie_titles_cache():
     try:
         cursor = Media.find({}, {"file_name": 1})
         async for doc in cursor:
-            fname = doc.get("file_name")
+            fname = doc.get("file_name") if isinstance(doc, dict) else getattr(doc, "file_name", None)
             if fname:
                 cleaned = clean_movie_title(fname)
                 if cleaned and len(cleaned) > 1:
@@ -277,7 +277,7 @@ async def find_similar_titles(query_str):
         try:
             cursor = Media.find({}, {"file_name": 1})
             async for doc in cursor:
-                fname = doc.get("file_name")
+                fname = doc.get("file_name") if isinstance(doc, dict) else getattr(doc, "file_name", None)
                 if fname:
                     cleaned = clean_movie_title(fname)
                     if cleaned and len(cleaned) > 1:
