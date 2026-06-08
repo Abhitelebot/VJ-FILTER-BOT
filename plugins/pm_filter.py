@@ -280,7 +280,9 @@ async def next_page(bot, query):
 @Client.on_callback_query(filters.regex(r"^spol"))
 async def advantage_spoll_choker(bot, query):
     _, user, movie_ = query.data.split('#')
-    movies = SPELL_CHECK.get(query.message.reply_to_message.id)
+    movies = SPELL_CHECK.get(query.message.id)
+    if not movies and query.message.reply_to_message:
+        movies = SPELL_CHECK.get(query.message.reply_to_message.id)
     if not movies:
         return await query.answer(script.OLD_ALRT_TXT.format(query.from_user.first_name), show_alert=True)
     if int(user) != 0 and query.from_user.id != int(user):
@@ -2781,26 +2783,7 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
             files, offset, total_results = await get_search_results(message.chat.id ,search, offset=0, filter=True)
             settings = await get_settings(message.chat.id)
             if not files:
-                if settings["spell_check"]:
-                    return await advantage_spell_chok(client, name, msg, reply_msg, ai_search)
-                else:
-                    from utils import check_ott_status
-                    status, clean_name = await check_ott_status(name)
-                    if status == "NOT_RELEASED":
-                        msg_text = script.MVE_NOT_OTT.format(clean_name)
-                        k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-                    else:
-                        msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
-                        btn = [[
-                            InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
-                        ]]
-                        k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
-                    await asyncio.sleep(30)
-                    try:
-                        await k.delete()
-                    except:
-                        pass
-                    return
+                return await advantage_spell_chok(client, name, msg, reply_msg, ai_search)
         else:
             return
     else:
@@ -2986,15 +2969,12 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     similar_titles = await find_similar_titles(mv_rqst)
     
     if similar_titles:
-        SPELL_CHECK[mv_id] = similar_titles
-        msg_text = "🔍 <b>Did you mean:</b>\n\n"
-        for title in similar_titles:
-            msg_text += f"🎬 <b>{title}</b>\n"
+        msg_text = f"I COULDN'T FIND ANYTHING FOR {mv_rqst.lower()} . DID YOU MEAN ANY OF THESE BELOW :"
             
         btn = [
             [
                 InlineKeyboardButton(
-                    text=f"🎬 {title}",
+                    text=f"{title}",
                     callback_data=f"spol#{reqstr1}#{k}"
                 )
             ]
@@ -3006,6 +2986,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             text=msg_text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
+        SPELL_CHECK[spell_check_del.id] = similar_titles
+        SPELL_CHECK[mv_id] = similar_titles
         try:
             if settings['auto_delete']:
                 await asyncio.sleep(600)

@@ -231,6 +231,10 @@ def clean_movie_title(filename):
         name = name.rsplit('.', 1)[0]
     name = re.sub(r'[_.\-+\[\]()]', ' ', name)
     
+    # Extract year if present
+    year_match = re.search(r'\b(19|20)\d{2}\b', name)
+    year_str = f" ({year_match.group(0)})" if year_match else ""
+    
     earliest_idx = len(name)
     for pattern in CLEAN_KEYWORDS:
         match = re.search(pattern, name, re.IGNORECASE)
@@ -240,7 +244,7 @@ def clean_movie_title(filename):
     title = name[:earliest_idx].strip()
     title = re.sub(r'^[xX]\s*', '', title)
     title = re.sub(r'\s+', ' ', title)
-    return title.title()
+    return f"{title.title()}{year_str}"
 
 async def load_movie_titles_cache():
     from utils import temp
@@ -265,6 +269,8 @@ async def find_similar_titles(query_str):
     if not query_clean:
         return []
         
+    query_clean_no_year = re.sub(r'\s*\(\d{4}\)', '', query_clean).strip()
+        
     if not temp.MOVIE_TITLES_CACHE:
         try:
             cursor = Media.find({}, {"file_name": 1}).sort('$natural', -1).limit(2000)
@@ -278,11 +284,21 @@ async def find_similar_titles(query_str):
             logger.error(f"Fallback loading cache failed: {e}")
             
     candidates = list(temp.MOVIE_TITLES_CACHE)
-    matches = difflib.get_close_matches(query_clean, candidates, n=4, cutoff=0.5)
+    matches = difflib.get_close_matches(query_clean_no_year, candidates, n=4, cutoff=0.5)
     
+    if matches:
+        base_match = matches[0]
+        base_title_clean = re.sub(r'\s*\(\d{4}\)', '', base_match).strip()
+        if len(base_title_clean) > 3:
+            for cand in candidates:
+                cand_clean = re.sub(r'\s*\(\d{4}\)', '', cand).strip()
+                if cand not in matches and (base_title_clean.lower() in cand_clean.lower() or cand_clean.lower() in base_title_clean.lower()):
+                    matches.append(cand)
+                    
     if not matches:
         for title in candidates:
-            if query_clean.lower() in title.lower() or title.lower() in query_clean.lower():
+            title_no_year = re.sub(r'\s*\(\d{4}\)', '', title).strip()
+            if query_clean_no_year.lower() in title_no_year.lower() or title_no_year.lower() in query_clean_no_year.lower():
                 matches.append(title)
                 if len(matches) >= 4:
                     break
