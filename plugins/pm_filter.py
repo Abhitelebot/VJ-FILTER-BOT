@@ -289,38 +289,35 @@ async def advantage_spoll_choker(bot, query):
         return await query.answer(script.ALRT_TXT.format(query.from_user.first_name), show_alert=True)
     if movie_ == "close_spellcheck":
         return await query.message.delete()
-    movie = movies[(int(movie_))]
-    movie = re.sub(r"[:\-]", " ", movie)
-    movie = re.sub(r"\s+", " ", movie).strip()
+    movie = movies[int(movie_)]
+    search_movie = re.sub(r'\(|\)', ' ', movie)
+    search_movie = re.sub(r"[:\-]", " ", search_movie)
+    search_movie = re.sub(r"\s+", " ", search_movie).strip()
     await query.answer(script.TOP_ALRT_MSG)
-    gl = await global_filters(bot, query.message, text=movie)
-    if gl == False:
-        k = await manual_filters(bot, query.message, text=movie)
-        if k == False:
-            files, offset, total_results = await get_search_results(query.message.chat.id, movie, offset=0, filter=True)
-            if files:
-                k = (movie, files, offset, total_results)
-                await auto_filter(bot, movie, query, query.message, False, k)
-            else:
-                from utils import check_ott_status
-                status, clean_name = await check_ott_status(movie)
-                if status == "NOT_RELEASED":
-                    msg_text = script.MVE_NOT_OTT.format(clean_name)
-                    k = await query.message.edit(text=msg_text, reply_markup=None)
-                elif status == "NOT_FOUND":
-                    msg_text = script.MVE_NOT_FOUND_SPELL
-                    k = await query.message.edit(text=msg_text, reply_markup=None)
-                else:
-                    msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
-                    btn = [[
-                        InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
-                    ]]
-                    k = await query.message.edit(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
-                await asyncio.sleep(30)
-                try:
-                    await k.delete()
-                except:
-                    pass
+    files, offset, total_results = await get_search_results(query.message.chat.id, search_movie, offset=0, filter=True)
+    if files:
+        k = (search_movie, files, offset, total_results)
+        await auto_filter(bot, search_movie, query, query.message, False, k)
+    else:
+        from utils import check_ott_status
+        status, clean_name = await check_ott_status(movie)
+        if status == "NOT_RELEASED":
+            msg_text = script.MVE_NOT_OTT.format(clean_name)
+            k = await query.message.edit(text=msg_text, reply_markup=None)
+        elif status == "NOT_FOUND":
+            msg_text = script.MVE_NOT_FOUND_SPELL
+            k = await query.message.edit(text=msg_text, reply_markup=None)
+        else:
+            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+            btn = [[
+                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+            ]]
+            k = await query.message.edit(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+        await asyncio.sleep(30)
+        try:
+            await k.delete()
+        except:
+            pass
 
 # Year 
 @Client.on_callback_query(filters.regex(r"^years#"))
@@ -3001,11 +2998,11 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     reqstr = await client.get_users(reqstr1)
     settings = await get_settings(msg.chat.id)
     
-    from database.ia_filterdb import find_similar_titles
-    similar_titles = await find_similar_titles(mv_rqst)
-    
+    from utils import get_web_suggestions, check_ott_status
     import difflib
     import re
+    
+    suggestions = await get_web_suggestions(mv_rqst)
     
     def clean_for_ratio(title):
         t = re.sub(r'\s*\(\d{4}\)', '', title).strip().lower()
@@ -3013,15 +3010,41 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         return re.sub(r'\s+', ' ', t).strip()
 
     best_ratio = 0
-    if similar_titles:
+    best_match = None
+    if suggestions:
         cleaned_query = clean_for_ratio(mv_rqst)
-        for title in similar_titles:
+        for title in suggestions:
             cleaned_title = clean_for_ratio(title)
             ratio = difflib.SequenceMatcher(None, cleaned_query, cleaned_title).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
+                best_match = title
 
-    if similar_titles and best_ratio >= 0.4:
+    # Direct match threshold: if ratio >= 0.95, it's considered an exact/direct match
+    if suggestions and best_ratio >= 0.95:
+        status, clean_name = await check_ott_status(best_match)
+        if status == "NOT_RELEASED":
+            msg_text = script.MVE_NOT_OTT.format(clean_name)
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        elif status == "NOT_FOUND":
+            msg_text = script.MVE_NOT_FOUND_SPELL
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        else:
+            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+            btn = [[
+                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+            ]]
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+        
+        await asyncio.sleep(30)
+        try:
+            await k.delete()
+        except:
+            pass
+        return
+
+    # If it's a spelling suggestion (0.4 <= best_ratio < 0.95)
+    elif suggestions and best_ratio >= 0.4:
         if best_ratio >= 0.7:
             # Case 1: Wrong spelling (High confidence)
             msg_text = f"I COULDN'T FIND ANYTHING FOR {mv_rqst.lower()} . DID YOU MEAN ANY OF THESE BELOW :"
@@ -3036,7 +3059,7 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                     callback_data=f"spol#{reqstr1}#{k}"
                 )
             ]
-            for k, title in enumerate(similar_titles)
+            for k, title in enumerate(suggestions)
         ]
         btn.append([InlineKeyboardButton(text="Close", callback_data=f'spol#{reqstr1}#close_spellcheck')])
         
@@ -3044,8 +3067,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             text=msg_text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
-        SPELL_CHECK[spell_check_del.id] = similar_titles
-        SPELL_CHECK[mv_id] = similar_titles
+        SPELL_CHECK[spell_check_del.id] = suggestions
+        SPELL_CHECK[mv_id] = suggestions
         try:
             if settings['auto_delete']:
                 await asyncio.sleep(600)
@@ -3058,27 +3081,11 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 await asyncio.sleep(600)
                 await spell_check_del.delete()
         return
-    else:
-        # No matching titles in cache or similarity is too low
-        from utils import check_ott_status
-        status, clean_name = await check_ott_status(mv_rqst)
         
-        if status == "NOT_RELEASED":
-            # Case 4: Movie exists but OTT version not released yet.
-            msg_text = script.MVE_NOT_OTT.format(clean_name)
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        elif status == "NOT_FOUND":
-            # Case 3: Movie does not exist at all.
-            msg_text = script.MVE_NOT_FOUND_SPELL
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        else:
-            # Case 2: Movie exists and released on OTT, but not in database.
-            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
-            btn = [[
-                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
-            ]]
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
-            
+    else:
+        # No matching web titles or similarity is too low
+        msg_text = script.MVE_NOT_FOUND_SPELL
+        k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
         await asyncio.sleep(30)
         try:
             await k.delete()

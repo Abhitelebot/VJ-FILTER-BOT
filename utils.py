@@ -764,7 +764,14 @@ async def check_ott_status(movie_title):
     from datetime import datetime
     from info import TMDB_API_KEY
     
-    clean_name = movie_title.strip()
+    # Extract year if present, e.g. "Kantara (2022)" -> name="Kantara", year=2022
+    year_match = re.search(r'\((19|20)\d{2}\)', movie_title)
+    target_year = None
+    if year_match:
+        target_year = int(year_match.group(0)[1:-1])
+        clean_name = re.sub(r'\s*\((19|20)\d{2}\)', '', movie_title).strip()
+    else:
+        clean_name = movie_title.strip()
     
     if not TMDB_API_KEY:
         return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
@@ -782,6 +789,13 @@ async def check_ott_status(movie_title):
                     return await check_imdb_ott_status(movie_title, fallback_on_error_only=False)
                     
                 first = results[0]
+                if target_year:
+                    for item in results:
+                        item_year_str = item.get("release_date") or item.get("first_air_date")
+                        if item_year_str and item_year_str.startswith(str(target_year)):
+                            first = item
+                            break
+                            
                 media_type = first.get("media_type")
                 display_name = first.get("title") or first.get("name") or clean_name
                 
@@ -869,11 +883,24 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
     import re
     from datetime import datetime
     
-    clean_name = movie_title.strip()
+    # Extract year if present
+    year_match = re.search(r'\((19|20)\d{2}\)', movie_title)
+    target_year = None
+    if year_match:
+        target_year = int(year_match.group(0)[1:-1])
+        clean_name = re.sub(r'\s*\((19|20)\d{2}\)', '', movie_title).strip()
+    else:
+        clean_name = movie_title.strip()
+        
     try:
-        movies = cinemagoer.search_movie(clean_name, results=3)
+        movies = cinemagoer.search_movie(clean_name, results=5)
         if movies:
             first = movies[0]
+            if target_year:
+                for m in movies:
+                    if m.get('year') == target_year:
+                        first = m
+                        break
             movie = cinemagoer.get_movie(first.movieID)
             kind = movie.get('kind')
             display_name = movie.get('title') or clean_name
@@ -910,3 +937,57 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
         return "RELEASED", clean_name
+
+
+async def get_web_suggestions(query_str):
+    import aiohttp
+    import ssl
+    from urllib.parse import quote
+    from info import TMDB_API_KEY
+    
+    clean_name = query_str.strip()
+    suggestions = []
+    
+    # 1. Search TMDB
+    if TMDB_API_KEY:
+        url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
+        try:
+            connector = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        results = data.get("results", [])
+                        for item in results:
+                            media_type = item.get("media_type")
+                            if media_type in ["movie", "tv"]:
+                                title = item.get("title") or item.get("name")
+                                year = item.get("release_date") or item.get("first_air_date")
+                                year_str = f" ({year[:4]})" if year else ""
+                                if title:
+                                    sug = f"{title}{year_str}"
+                                    if sug not in suggestions:
+                                        suggestions.append(sug)
+                                    if len(suggestions) >= 4:
+                                        break
+        except Exception as e:
+            logger.error(f"Error getting TMDB suggestions: {e}")
+            
+    # 2. Search IMDb / Cinemagoer fallback if suggestions are fewer than 4
+    if len(suggestions) < 4:
+        try:
+            movies = imdb.search_movie(clean_name, results=5)
+            for m in movies:
+                title = m.get("title")
+                year = m.get("year")
+                year_str = f" ({year})" if year else ""
+                if title:
+                    sug = f"{title}{year_str}"
+                    if sug not in suggestions:
+                        suggestions.append(sug)
+                    if len(suggestions) >= 4:
+                        break
+        except Exception as e:
+            logger.error(f"Error getting IMDb suggestions: {e}")
+            
+    return suggestions[:4]
