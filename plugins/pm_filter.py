@@ -1,7 +1,3 @@
-# Don't Remove Credit @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot @Tech_VJ
-# Ask Doubt on telegram @KingVJ01
-
 import os, logging, string, asyncio, time, re, ast, random, math, pytz, pyrogram, unicodedata
 from datetime import datetime, timedelta, date, time
 from Script import script
@@ -305,7 +301,7 @@ async def advantage_spoll_choker(bot, query):
                 await auto_filter(bot, movie, query, reply_msg, ai_search, k)
             else:
                 btn = [[
-                    InlineKeyboardButton('💢 Request Here 💢', url="https://t.me/atozmoviesrequest")
+                    InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
                 ]]                       
                 k = await query.message.edit(script.MVE_NT_FND, reply_markup=InlineKeyboardMarkup(btn))
                 await asyncio.sleep(10)
@@ -2778,6 +2774,12 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                 if settings["spell_check"]:
                     return await advantage_spell_chok(client, name, msg, reply_msg, ai_search)
                 else:
+                    btn = [[
+                        InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
+                    ]]
+                    k = await reply_msg.edit_text(text=script.I_CUDNT.format(name), reply_markup=InlineKeyboardMarkup(btn))
+                    await asyncio.sleep(30)
+                    await k.delete()
                     return
         else:
             return
@@ -2967,9 +2969,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         movies = await get_poster(mv_rqst, bulk=True)
     except Exception as e:
         logger.exception(e)
-        reqst_gle = mv_rqst.replace(" ", "+")
         button = [[
-            InlineKeyboardButton("Gᴏᴏɢʟᴇ", url=f"https://www.google.com/search?q={reqst_gle}")
+            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
         ]]
         if NO_RESULTS_MSG:
             await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
@@ -2979,9 +2980,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         return
     movielist = []
     if not movies:
-        reqst_gle = mv_rqst.replace(" ", "+")
         button = [[
-            InlineKeyboardButton("Gᴏᴏɢʟᴇ", url=f"https://www.google.com/search?q={reqst_gle}")
+            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
         ]]
         if NO_RESULTS_MSG:
             await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
@@ -3005,9 +3005,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             if mv_rqst.startswith(techvj[0]):
                 await auto_filter(client, techvj, msg, reply_msg, vj_search_new)
                 break
-        reqst_gle = mv_rqst.replace(" ", "+")
         button = [[
-            InlineKeyboardButton("Gᴏᴏɢʟᴇ", url=f"https://www.google.com/search?q={reqst_gle}")
+            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
         ]]
         if NO_RESULTS_MSG:
             await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
