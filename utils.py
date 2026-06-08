@@ -45,6 +45,7 @@ class temp(object):
     SHORT = {}
     SETTINGS = {}
     IMDB_CAP = {}
+    MOVIE_TITLES_CACHE = set()
 
 
 async def pub_is_subscribed(bot, query, channel):
@@ -738,3 +739,155 @@ async def get_seconds(time_string):
         return value * 86400 * 365
     else:
         return 0
+
+
+async def check_ott_status(movie_title):
+    import aiohttp
+    import ssl
+    import re
+    from urllib.parse import quote
+    from datetime import datetime
+    from info import TMDB_API_KEY
+    
+    clean_name = movie_title.strip()
+    
+    if not TMDB_API_KEY:
+        return await check_imdb_ott_status(movie_title)
+        
+    url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
+    try:
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, timeout=5) as response:
+                if response.status != 200:
+                    return await check_imdb_ott_status(movie_title)
+                data = await response.json()
+                results = data.get("results")
+                if not results:
+                    return await check_imdb_ott_status(movie_title)
+                    
+                first = results[0]
+                media_type = first.get("media_type")
+                display_name = first.get("title") or first.get("name") or clean_name
+                
+                if media_type == "movie":
+                    movie_id = first.get("id")
+                    release_date_str = first.get("release_date")
+                    if not release_date_str:
+                        return "NOT_RELEASED", display_name
+                        
+                    try:
+                        release_date = datetime.strptime(release_date_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        return "RELEASED", display_name
+                        
+                    today = datetime.now().date()
+                    if release_date > today:
+                        return "NOT_RELEASED", display_name
+                        
+                    rd_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates?api_key={TMDB_API_KEY}"
+                    async with session.get(rd_url, timeout=5) as rd_resp:
+                        if rd_resp.status == 200:
+                            rd_data = await rd_resp.json()
+                            rd_results = rd_data.get("results", [])
+                            
+                            has_digital = False
+                            digital_date = None
+                            theatrical_date = None
+                            
+                            for country_data in rd_results:
+                                for rd in country_data.get("release_dates", []):
+                                    rd_type = rd.get("type")
+                                    rd_date_str = rd.get("release_date")
+                                    if not rd_date_str:
+                                        continue
+                                    try:
+                                        parsed_date = datetime.strptime(rd_date_str[:10], "%Y-%m-%d").date()
+                                    except ValueError:
+                                        continue
+                                        
+                                    if rd_type == 4:
+                                        has_digital = True
+                                        if digital_date is None or parsed_date < digital_date:
+                                            digital_date = parsed_date
+                                    elif rd_type in [2, 3]:
+                                        if theatrical_date is None or parsed_date < theatrical_date:
+                                            theatrical_date = parsed_date
+                                            
+                            if has_digital and digital_date:
+                                if digital_date <= today:
+                                    return "RELEASED", display_name
+                                else:
+                                    return "NOT_RELEASED", display_name
+                                    
+                            theatrical_to_use = theatrical_date or release_date
+                            if theatrical_to_use:
+                                days_diff = (today - theatrical_to_use).days
+                                if days_diff >= 60:
+                                    return "RELEASED", display_name
+                                else:
+                                    return "NOT_RELEASED", display_name
+                                    
+                    return "RELEASED", display_name
+                    
+                elif media_type == "tv":
+                    first_air_date_str = first.get("first_air_date")
+                    if not first_air_date_str:
+                        return "NOT_RELEASED", display_name
+                    try:
+                        first_air_date = datetime.strptime(first_air_date_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        return "RELEASED", display_name
+                    if first_air_date > datetime.now().date():
+                        return "NOT_RELEASED", display_name
+                    else:
+                        return "RELEASED", display_name
+                        
+    except Exception as e:
+        logger.error(f"Error checking OTT status on TMDB: {e}")
+        
+    return await check_imdb_ott_status(movie_title)
+
+
+async def check_imdb_ott_status(movie_title):
+    from utils import imdb as cinemagoer
+    import re
+    from datetime import datetime
+    
+    clean_name = movie_title.strip()
+    try:
+        movies = cinemagoer.search_movie(clean_name, results=3)
+        if movies:
+            first = movies[0]
+            movie = cinemagoer.get_movie(first.movieID)
+            kind = movie.get('kind')
+            display_name = movie.get('title') or clean_name
+            
+            if kind == 'tv series':
+                year = movie.get('year')
+                if year:
+                    current_year = datetime.now().year
+                    if year > current_year:
+                        return "NOT_RELEASED", display_name
+                return "RELEASED", display_name
+            else:
+                year = movie.get('year')
+                if year:
+                    current_year = datetime.now().year
+                    if year > current_year:
+                        return "NOT_RELEASED", display_name
+                        
+                release_date_str = movie.get('original air date') or movie.get('year')
+                if release_date_str:
+                    match = re.search(r'\b(19|20)\d{2}\b', str(release_date_str))
+                    if match:
+                        rel_year = int(match.group(0))
+                        if rel_year > datetime.now().year:
+                            return "NOT_RELEASED", display_name
+                        elif rel_year < datetime.now().year:
+                            return "RELEASED", display_name
+                return "RELEASED", display_name
+    except Exception as e:
+        logger.error(f"IMDb fallback OTT check failed: {e}")
+        
+    return "RELEASED", clean_name

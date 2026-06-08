@@ -67,6 +67,13 @@ async def save_file(media):
             return False, 0
         else:
             logger.info(f'{getattr(media, "file_name", "NO_FILE")} is saved to database')
+            try:
+                from utils import temp
+                cleaned = clean_movie_title(file_name)
+                if cleaned and len(cleaned) > 1:
+                    temp.MOVIE_TITLES_CACHE.add(cleaned)
+            except Exception as e:
+                logger.error(f"Error adding saved file to cache: {e}")
             return True, 1
 
 
@@ -206,3 +213,85 @@ def unpack_new_file_id(new_file_id):
     )
     file_ref = encode_file_ref(decoded.file_reference)
     return file_id, file_ref
+
+
+CLEAN_KEYWORDS = [
+    r'\b(19|20)\d{2}\b', # Years (e.g., 2022, 1999)
+    r'\b\d{3,4}p\b', # Resolutions (e.g., 720p, 1080p, 2160p)
+    r'\b(s|season)\s*\d+\b', # Seasons (e.g., S01, Season 2)
+    r'\b(e|episode)\s*\d+\b', # Episodes (e.g., E01, Episode 4)
+    r'\b(hindi|tamil|telugu|kannada|malayalam|english|bengali|marathi|gujarati|punjabi|dubbed|multi|dual|org|original)\b', # Languages
+    r'\b(web-dl|webrip|web|hdr|hdrip|bluray|brrip|dvdrip|hdtv|rip|tc|cam|pre-dvd|dvd)\b', # Sources
+    r'\b(x264|x265|hevc|h264|h265|aac|dd5\.1|ddp5\.1|ddp|ac3|mp3|dts|esub|sub|subtitles)\b', # Codecs/Audio/Subs
+]
+
+def clean_movie_title(filename):
+    name = filename
+    if '.' in name:
+        name = name.rsplit('.', 1)[0]
+    name = re.sub(r'[_.\-+\[\]()]', ' ', name)
+    
+    earliest_idx = len(name)
+    for pattern in CLEAN_KEYWORDS:
+        match = re.search(pattern, name, re.IGNORECASE)
+        if match:
+            earliest_idx = min(earliest_idx, match.start())
+            
+    title = name[:earliest_idx].strip()
+    title = re.sub(r'^[xX]\s*', '', title)
+    title = re.sub(r'\s+', ' ', title)
+    return title.title()
+
+async def load_movie_titles_cache():
+    from utils import temp
+    import time
+    start_time = time.time()
+    try:
+        cursor = Media.find({}, {"file_name": 1})
+        async for doc in cursor:
+            fname = doc.get("file_name")
+            if fname:
+                cleaned = clean_movie_title(fname)
+                if cleaned and len(cleaned) > 1:
+                    temp.MOVIE_TITLES_CACHE.add(cleaned)
+        logger.info(f"Loaded {len(temp.MOVIE_TITLES_CACHE)} unique movie titles into cache in {time.time() - start_time:.2f}s.")
+    except Exception as e:
+        logger.exception(f"Error loading movie titles cache: {e}")
+
+async def find_similar_titles(query_str):
+    from utils import temp
+    import difflib
+    query_clean = clean_movie_title(query_str)
+    if not query_clean:
+        return []
+        
+    if not temp.MOVIE_TITLES_CACHE:
+        try:
+            cursor = Media.find({}, {"file_name": 1}).sort('$natural', -1).limit(2000)
+            async for doc in cursor:
+                fname = doc.get("file_name")
+                if fname:
+                    cleaned = clean_movie_title(fname)
+                    if cleaned and len(cleaned) > 1:
+                        temp.MOVIE_TITLES_CACHE.add(cleaned)
+        except Exception as e:
+            logger.error(f"Fallback loading cache failed: {e}")
+            
+    candidates = list(temp.MOVIE_TITLES_CACHE)
+    matches = difflib.get_close_matches(query_clean, candidates, n=4, cutoff=0.5)
+    
+    if not matches:
+        for title in candidates:
+            if query_clean.lower() in title.lower() or title.lower() in query_clean.lower():
+                matches.append(title)
+                if len(matches) >= 4:
+                    break
+                    
+    seen = set()
+    unique_matches = []
+    for m in matches:
+        if m.lower() not in seen:
+            seen.add(m.lower())
+            unique_matches.append(m)
+            
+    return unique_matches[:4]

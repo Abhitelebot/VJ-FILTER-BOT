@@ -176,6 +176,21 @@ The requested content is currently unavailable in our database.
 
 Please use the button below to submit a request."""
     
+    MVE_NOT_OTT = """🎬 <b>{}</b>
+
+⏳ This movie has not been released on OTT yet.
+
+Please wait for the official OTT release.
+Requests are disabled for unreleased movies."""
+
+    MVE_OTT_NOT_DB = """🎬 <b>{}</b>
+
+✅ OTT Released
+
+❌ This movie is currently unavailable in our database.
+
+You may request it below and our admins will try to upload it soon."""
+    
     TOP_ALRT_MSG = """Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ..."""
 
     MELCOW_ENG = """<b>Hᴇʟʟᴏ {} 😍, Aɴᴅ Wᴇʟᴄᴏᴍᴇ Tᴏ {} Gʀᴏᴜᴘ ❤️</b>"""

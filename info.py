@@ -21,6 +21,7 @@ SESSION = environ.get('SESSION', 'A2Zmovies')
 API_ID = int(environ.get('API_ID', '25810372'))
 API_HASH = environ.get('API_HASH', '4e719f5c6f73f576f5239f5a8fd45f8f')
 BOT_TOKEN = environ.get('BOT_TOKEN', "")
+TMDB_API_KEY = environ.get('TMDB_API_KEY', "")
 
 # Bot settings
 CACHE_TIME = int(environ.get('CACHE_TIME', 1800))

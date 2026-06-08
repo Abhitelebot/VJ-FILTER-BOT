@@ -298,14 +298,24 @@ async def advantage_spoll_choker(bot, query):
             files, offset, total_results = await get_search_results(query.message.chat.id, movie, offset=0, filter=True)
             if files:
                 k = (movie, files, offset, total_results)
-                await auto_filter(bot, movie, query, reply_msg, ai_search, k)
+                await auto_filter(bot, movie, query, query.message, False, k)
             else:
-                btn = [[
-                    InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
-                ]]                       
-                k = await query.message.edit(script.MVE_NT_FND, reply_markup=InlineKeyboardMarkup(btn))
-                await asyncio.sleep(10)
-                await k.delete()
+                from utils import check_ott_status
+                status, clean_name = await check_ott_status(movie)
+                if status == "NOT_RELEASED":
+                    msg_text = script.MVE_NOT_OTT.format(clean_name)
+                    k = await query.message.edit(text=msg_text, reply_markup=None)
+                else:
+                    msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+                    btn = [[
+                        InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+                    ]]
+                    k = await query.message.edit(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+                await asyncio.sleep(30)
+                try:
+                    await k.delete()
+                except:
+                    pass
 
 # Year 
 @Client.on_callback_query(filters.regex(r"^years#"))
@@ -2774,12 +2784,22 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                 if settings["spell_check"]:
                     return await advantage_spell_chok(client, name, msg, reply_msg, ai_search)
                 else:
-                    btn = [[
-                        InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
-                    ]]
-                    k = await reply_msg.edit_text(text=script.I_CUDNT.format(name), reply_markup=InlineKeyboardMarkup(btn))
+                    from utils import check_ott_status
+                    status, clean_name = await check_ott_status(name)
+                    if status == "NOT_RELEASED":
+                        msg_text = script.MVE_NOT_OTT.format(clean_name)
+                        k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+                    else:
+                        msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+                        btn = [[
+                            InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+                        ]]
+                        k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
                     await asyncio.sleep(30)
-                    await k.delete()
+                    try:
+                        await k.delete()
+                    except:
+                        pass
                     return
         else:
             return
@@ -2961,72 +2981,29 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     reqstr1 = msg.from_user.id if msg.from_user else 0
     reqstr = await client.get_users(reqstr1)
     settings = await get_settings(msg.chat.id)
-    query = re.sub(
-        r"\b(pl(i|e)*?(s|z+|ease|se|ese|(e+)s(e)?)|((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|br((o|u)h?)*|^h(e|a)?(l)*(o)*|mal(ayalam)?|t(h)?amil|file|that|find|und(o)*|kit(t(i|y)?)?o(w)?|thar(u)?(o)*w?|kittum(o)*|aya(k)*(um(o)*)?|full\smovie|any(one)|with\ssubtitle(s)?)",
-        "", msg.text, flags=re.IGNORECASE)  # plis contribute some common words
-    query = query.strip() + " movie"
-    try:
-        movies = await get_poster(mv_rqst, bulk=True)
-    except Exception as e:
-        logger.exception(e)
-        button = [[
-            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
-        ]]
-        if NO_RESULTS_MSG:
-            await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
-        k = await reply_msg.edit_text(text=script.I_CUDNT.format(mv_rqst), reply_markup=InlineKeyboardMarkup(button))
-        await asyncio.sleep(30)
-        await k.delete()
-        return
-    movielist = []
-    if not movies:
-        button = [[
-            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
-        ]]
-        if NO_RESULTS_MSG:
-            await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
-        k = await reply_msg.edit_text(text=script.I_CUDNT.format(mv_rqst), reply_markup=InlineKeyboardMarkup(button))
-        await asyncio.sleep(30)
-        await k.delete()
-        return
-    movielist += [movie.get('title') for movie in movies]
-    movielist += [f"{movie.get('title')} {movie.get('year')}" for movie in movies]
-    SPELL_CHECK[mv_id] = movielist
-    if AI_SPELL_CHECK == True and vj_search == True:
-        vj_search_new = False
-        vj_ai_msg = await reply_msg.edit_text("<b><i>Advance Ai Try To Find Your Movie With Your Wrong Spelling.</i></b>")
-        movienamelist = []
-        movienamelist += [movie.get('title') for movie in movies]
-        for techvj in movienamelist:
-            try:
-                mv_rqst = mv_rqst.capitalize()
-            except:
-                pass
-            if mv_rqst.startswith(techvj[0]):
-                await auto_filter(client, techvj, msg, reply_msg, vj_search_new)
-                break
-        button = [[
-            InlineKeyboardButton("📩 Request Movie", url="https://t.me/atozmoviesrequest")
-        ]]
-        if NO_RESULTS_MSG:
-            await client.send_message(chat_id=LOG_CHANNEL, text=(script.NORSLTS.format(reqstr.id, reqstr.mention, mv_rqst)))
-        k = await reply_msg.edit_text(text=script.I_CUDNT.format(mv_rqst), reply_markup=InlineKeyboardMarkup(button))
-        await asyncio.sleep(30)
-        await k.delete()
-        return
-    else:
+    
+    from database.ia_filterdb import find_similar_titles
+    similar_titles = await find_similar_titles(mv_rqst)
+    
+    if similar_titles:
+        SPELL_CHECK[mv_id] = similar_titles
+        msg_text = "🔍 <b>Did you mean:</b>\n\n"
+        for title in similar_titles:
+            msg_text += f"🎬 <b>{title}</b>\n"
+            
         btn = [
             [
                 InlineKeyboardButton(
-                    text=movie_name.strip(),
-                    callback_data=f"spol#{reqstr1}#{k}",
+                    text=f"🎬 {title}",
+                    callback_data=f"spol#{reqstr1}#{k}"
                 )
             ]
-            for k, movie_name in enumerate(movielist)
+            for k, title in enumerate(similar_titles)
         ]
         btn.append([InlineKeyboardButton(text="Close", callback_data=f'spol#{reqstr1}#close_spellcheck')])
+        
         spell_check_del = await reply_msg.edit_text(
-            text=script.CUDNT_FND.format(mv_rqst),
+            text=msg_text,
             reply_markup=InlineKeyboardMarkup(btn)
         )
         try:
@@ -3040,6 +3017,27 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             if settings['auto_delete']:
                 await asyncio.sleep(600)
                 await spell_check_del.delete()
+        return
+    else:
+        from utils import check_ott_status
+        status, clean_name = await check_ott_status(mv_rqst)
+        
+        if status == "NOT_RELEASED":
+            msg_text = script.MVE_NOT_OTT.format(clean_name)
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+        else:
+            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+            btn = [[
+                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+            ]]
+            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+            
+        await asyncio.sleep(30)
+        try:
+            await k.delete()
+        except:
+            pass
+        return
 
 async def manual_filters(client, message, text=False):
     settings = await get_settings(message.chat.id)

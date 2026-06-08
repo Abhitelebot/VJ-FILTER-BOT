@@ -61,6 +61,11 @@ async def start():
     temp.BANNED_USERS = b_users
     temp.BANNED_CHATS = b_chats
     await Media.ensure_indexes()
+    try:
+        from database.ia_filterdb import load_movie_titles_cache
+        asyncio.create_task(load_movie_titles_cache())
+    except Exception as e:
+        logging.error(f"Failed to start load_movie_titles_cache task: {e}")
     me = await TechVJBot.get_me()
     temp.ME = me.id
     temp.U_NAME = me.username
