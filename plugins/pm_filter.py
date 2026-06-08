@@ -300,15 +300,16 @@ async def advantage_spoll_choker(bot, query):
         await auto_filter(bot, search_movie, query, query.message, False, k)
     else:
         from utils import check_ott_status
+        import html
         status, clean_name = await check_ott_status(movie)
         if status == "NOT_RELEASED":
-            msg_text = script.MVE_NOT_OTT.format(clean_name)
+            msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
             k = await query.message.edit(text=msg_text, reply_markup=None)
         elif status == "NOT_FOUND":
             msg_text = script.MVE_NOT_FOUND_SPELL
             k = await query.message.edit(text=msg_text, reply_markup=None)
         else:
-            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+            msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
             btn = [[
                 InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
             ]]
@@ -3023,14 +3024,15 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     # Direct match threshold: if ratio >= 0.95, it's considered an exact/direct match
     if suggestions and best_ratio >= 0.95:
         status, clean_name = await check_ott_status(best_match)
+        import html
         if status == "NOT_RELEASED":
-            msg_text = script.MVE_NOT_OTT.format(clean_name)
+            msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
             k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
         elif status == "NOT_FOUND":
             msg_text = script.MVE_NOT_FOUND_SPELL
             k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
         else:
-            msg_text = script.MVE_OTT_NOT_DB.format(clean_name)
+            msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
             btn = [[
                 InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
             ]]
@@ -3045,9 +3047,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
 
     # If it's a spelling suggestion (0.4 <= best_ratio < 0.95)
     elif suggestions and best_ratio >= 0.4:
+        import html
         if best_ratio >= 0.7:
             # Case 1: Wrong spelling (High confidence)
-            msg_text = f"I COULDN'T FIND ANYTHING FOR {mv_rqst.lower()} . DID YOU MEAN ANY OF THESE BELOW :"
+            msg_text = f"I COULDN'T FIND ANYTHING FOR {html.escape(mv_rqst.lower())} . DID YOU MEAN ANY OF THESE BELOW :"
         else:
             # Case 5: Low confidence match
             msg_text = "Did you mean?"
