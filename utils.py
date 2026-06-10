@@ -974,7 +974,7 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
                     return "NOT_RELEASED", clean_name
                 else:
                     return "RELEASED", clean_name
-            return "NOT_FOUND", clean_name
+            return "RELEASED", clean_name
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
         # Fallback heuristic using the year in the query/title on exception
@@ -986,7 +986,7 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
                 return "NOT_RELEASED", clean_name
             else:
                 return "RELEASED", clean_name
-        return "NOT_FOUND", clean_name
+        return "RELEASED", clean_name
 
 
 async def get_web_suggestions(query_str):

@@ -279,6 +279,30 @@ async def next_page(bot, query):
 
 @Client.on_callback_query(filters.regex(r"^spol"))
 async def advantage_spoll_choker(bot, query):
+    def is_same_movie(query_title, db_filename):
+        import re
+        import difflib
+        from database.ia_filterdb import clean_movie_title
+        
+        q_year_match = re.search(r'\b(19|20)\d{2}\b', query_title)
+        q_year = int(q_year_match.group(0)) if q_year_match else None
+        q_root = re.sub(r'\s*\b(19|20)\d{2}\b', '', query_title).strip()
+        q_root = re.sub(r'[^a-z0-9\s]', '', q_root.lower()).strip()
+        q_root = re.sub(r'\s+', ' ', q_root)
+        
+        cleaned_file_title = clean_movie_title(db_filename)
+        f_year_match = re.search(r'\b(19|20)\d{2}\b', cleaned_file_title)
+        f_year = int(f_year_match.group(0)) if f_year_match else None
+        f_root = re.sub(r'\s*\b(19|20)\d{2}\b', '', cleaned_file_title).strip()
+        f_root = re.sub(r'[^a-z0-9\s]', '', f_root.lower()).strip()
+        f_root = re.sub(r'\s+', ' ', f_root)
+        
+        if q_year and f_year and q_year != f_year:
+            return False
+            
+        ratio = difflib.SequenceMatcher(None, q_root, f_root).ratio()
+        return ratio >= 0.85
+
     _, user, movie_ = query.data.split('#')
     movies = SPELL_CHECK.get(query.message.id)
     if not movies and query.message.reply_to_message:
@@ -298,9 +322,14 @@ async def advantage_spoll_choker(bot, query):
     if not files:
         search_no_year = re.sub(r'\s*\b(19|20)\d{2}\b', '', search_movie).strip()
         if search_no_year != search_movie:
-            files, offset, total_results = await get_search_results(query.message.chat.id, search_no_year, offset=0, filter=True)
-            if files:
-                search_movie = search_no_year
+            temp_files, temp_offset, temp_total = await get_search_results(query.message.chat.id, search_no_year, offset=0, filter=True)
+            if temp_files:
+                matched_files = [f for f in temp_files if is_same_movie(movie, f.file_name)]
+                if matched_files:
+                    files = matched_files
+                    offset = temp_offset
+                    total_results = len(matched_files)
+                    search_movie = search_no_year
 
     if not files:
         import difflib
@@ -318,8 +347,10 @@ async def advantage_spoll_choker(bot, query):
                 search_title = re.sub(r'\s+', ' ', search_title).strip()
                 db_files, db_offset, db_total = await get_search_results(query.message.chat.id, search_title, offset=0, filter=True)
                 if db_files:
-                    files, offset, total_results = db_files, db_offset, db_total
-                    search_movie = search_title
+                    matched_db_files = [f for f in db_files if is_same_movie(movie, f.file_name)]
+                    if matched_db_files:
+                        files, offset, total_results = matched_db_files, db_offset, len(matched_db_files)
+                        search_movie = search_title
 
     if files:
         k = (search_movie, files, offset, total_results)
@@ -3019,6 +3050,30 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                 await message.delete()
 
 async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
+    def is_same_movie(query_title, db_filename):
+        import re
+        import difflib
+        from database.ia_filterdb import clean_movie_title
+        
+        q_year_match = re.search(r'\b(19|20)\d{2}\b', query_title)
+        q_year = int(q_year_match.group(0)) if q_year_match else None
+        q_root = re.sub(r'\s*\b(19|20)\d{2}\b', '', query_title).strip()
+        q_root = re.sub(r'[^a-z0-9\s]', '', q_root.lower()).strip()
+        q_root = re.sub(r'\s+', ' ', q_root)
+        
+        cleaned_file_title = clean_movie_title(db_filename)
+        f_year_match = re.search(r'\b(19|20)\d{2}\b', cleaned_file_title)
+        f_year = int(f_year_match.group(0)) if f_year_match else None
+        f_root = re.sub(r'\s*\b(19|20)\d{2}\b', '', cleaned_file_title).strip()
+        f_root = re.sub(r'[^a-z0-9\s]', '', f_root.lower()).strip()
+        f_root = re.sub(r'\s+', ' ', f_root)
+        
+        if q_year and f_year and q_year != f_year:
+            return False
+            
+        ratio = difflib.SequenceMatcher(None, q_root, f_root).ratio()
+        return ratio >= 0.85
+
     mv_id = msg.id
     mv_rqst = name
     reqstr1 = msg.from_user.id if msg.from_user else 0
@@ -3058,7 +3113,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         search_title = re.sub(r'[:\-]', ' ', search_title)
         search_title = re.sub(r'\s+', ' ', search_title).strip()
         
-        db_files, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, filter=True)
+        db_files_raw, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, filter=True)
+        db_files = [f for f in db_files_raw if is_same_movie(best_match, f.file_name)] if db_files_raw else []
         if not db_files:
             from database.ia_filterdb import find_similar_titles
             db_sugs = await find_similar_titles(search_title)
@@ -3073,8 +3129,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                     fallback_title = re.sub(r'\s+', ' ', fallback_title).strip()
                     f_files, f_offset, f_total = await get_search_results(msg.chat.id, fallback_title, offset=0, filter=True)
                     if f_files:
-                        db_files, db_offset, db_total = f_files, f_offset, f_total
-                        search_title = fallback_title
+                        db_files = [f for f in f_files if is_same_movie(best_match, f.file_name)]
+                        if db_files:
+                            db_offset, db_total = f_offset, len(db_files)
+                            search_title = fallback_title
 
         if db_files:
             # Found in DB → show file list via auto_filter
