@@ -3036,8 +3036,7 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         
         if db_files:
             # Found in DB → show file list via auto_filter
-            k_tuple = (search_title, db_files, db_offset, db_total)
-            return await auto_filter(client, search_title, msg, reply_msg, vj_search, k_tuple)
+            return await auto_filter(client, search_title, msg, reply_msg, vj_search)
         else:
             # Not in DB → check OTT release status
             status, clean_name = await check_ott_status(best_match)
