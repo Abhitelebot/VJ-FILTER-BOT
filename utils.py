@@ -1067,27 +1067,27 @@ async def _get_web_suggestions_impl(query_str):
     connector = aiohttp.TCPConnector(ssl=False)
     async with aiohttp.ClientSession(connector=connector) as session:
         
-        # Tier 1: TMDb (user's own key - best fuzzy matching)
-        if TMDB_API_KEY:
-            try:
-                url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
-                async with session.get(url, timeout=6) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        for item in data.get("results", []):
-                            media_type = item.get("media_type")
-                            if media_type in ["movie", "tv"]:
-                                title = item.get("title") or item.get("name")
-                                year = item.get("release_date") or item.get("first_air_date")
-                                year_str = f" ({year[:4]})" if year else ""
-                                if title:
-                                    sug = f"{title}{year_str}"
-                                    if sug not in suggestions:
-                                        suggestions.append(sug)
-                                    if len(suggestions) >= 4:
-                                        break
-            except Exception as e:
-                logger.error(f"TMDb suggestions error: {e}")
+        # Tier 1: TMDb (best fuzzy matching; use user key or fallback public key)
+        _tmdb_key = TMDB_API_KEY or "1824e010c54b6ff1a105b91749acb12c"
+        try:
+            url = f"https://api.themoviedb.org/3/search/multi?api_key={_tmdb_key}&query={quote(clean_name)}"
+            async with session.get(url, timeout=6) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    for item in data.get("results", []):
+                        media_type = item.get("media_type")
+                        if media_type in ["movie", "tv"]:
+                            title = item.get("title") or item.get("name")
+                            year = item.get("release_date") or item.get("first_air_date")
+                            year_str = f" ({year[:4]})" if year else ""
+                            if title:
+                                sug = f"{title}{year_str}"
+                                if sug not in suggestions:
+                                    suggestions.append(sug)
+                                if len(suggestions) >= 4:
+                                    break
+        except Exception as e:
+            logger.error(f"TMDb suggestions error: {e}")
         
         # Tier 2: OMDb direct search
         if len(suggestions) < 2:

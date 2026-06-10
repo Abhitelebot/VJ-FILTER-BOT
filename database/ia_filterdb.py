@@ -80,20 +80,26 @@ async def save_file(media):
 
 async def get_search_results(chat_id, query, file_type=None, max_results=10, offset=0, filter=False):
     """For given query return (results, next_offset)"""
+    # Callers may explicitly pass a larger max_results (e.g. 100 for spell-check
+    # secondary DB lookups). Only apply the group-settings cap when the caller
+    # uses the default value of 10.
+    caller_max = max_results
     if chat_id is not None:
         settings = await get_settings(int(chat_id))
         try:
             if settings['max_btn']:
-                max_results = 10
+                settings_max = 10
             else:
-                max_results = int(MAX_B_TN)
+                settings_max = int(MAX_B_TN)
         except KeyError:
             await save_group_settings(int(chat_id), 'max_btn', False)
             settings = await get_settings(int(chat_id))
             if settings['max_btn']:
-                max_results = 10
+                settings_max = 10
             else:
-                max_results = int(MAX_B_TN)
+                settings_max = int(MAX_B_TN)
+        # Use whichever is larger: the caller's explicit request or the settings value
+        max_results = max(caller_max, settings_max)
     query = query.strip()
     #if filter:
         #better ?
