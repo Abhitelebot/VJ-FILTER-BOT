@@ -381,8 +381,13 @@ async def advantage_spoll_choker(bot, query):
             k = await query.message.edit(text=msg_text, reply_markup=None)
         else:
             msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
+            _uid = query.from_user.id if query.from_user else 0
+            _safe = (clean_name or movie)[:28].strip()
             btn = [[
-                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+                InlineKeyboardButton(
+                    "📥 Request Movie",
+                    callback_data=f"mrequest#{_safe}#{_uid}"
+                )
             ]]
             k = await query.message.edit(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
         await asyncio.sleep(30)
@@ -395,6 +400,95 @@ async def advantage_spoll_choker(bot, query):
                 await query.message.reply_to_message.delete()
             except:
                 pass
+
+# ── Movie Request callback ────────────────────────────────────────────────────
+@Client.on_callback_query(filters.regex(r"^mrequest#"))
+async def movie_request_handler(bot, query):
+    """
+    Called when user clicks "📥 Request Movie".
+    1. Saves the request to MongoDB.
+    2. Auto-posts the movie name in the REQUEST_GROUP.
+    3. Shows user a toast + redirect button.
+    """
+    import html as _html
+    try:
+        parts = query.data.split("#", 2)
+        movie_name = parts[1].strip() if len(parts) > 1 else "Unknown"
+        # Acknowledge immediately so Telegram doesn't show "loading"
+        await query.answer("✅ Your request has been submitted!", show_alert=False)
+
+        user = query.from_user
+        user_id = user.id if user else 0
+        user_name = (user.first_name or "User") if user else "User"
+        user_mention = f"<a href='tg://user?id={user_id}'>{_html.escape(user_name)}</a>"
+
+        # 1️⃣ Save to DB
+        try:
+            from database.movie_requests import save_movie_request
+            await save_movie_request(user_id, user_name, user_mention, movie_name)
+        except Exception as e:
+            logger.error(f"movie_request_handler: DB save failed: {e}")
+
+        # 2️⃣ Send movie name to the request group
+        try:
+            from info import REQUEST_GROUP, REQUEST_GROUP_LINK
+            request_text = (
+                f"📥 <b>New Movie Request</b>\n\n"
+                f"🎬 Movie: <b>{_html.escape(movie_name)}</b>\n"
+                f"👤 Requested by: {user_mention}"
+            )
+            await bot.send_message(
+                chat_id=f"@{REQUEST_GROUP}",
+                text=request_text,
+                parse_mode=enums.ParseMode.HTML
+            )
+        except Exception as e:
+            logger.error(f"movie_request_handler: group send failed: {e}")
+
+        # 3️⃣ Update button to a "Go to Group" redirect
+        try:
+            from info import REQUEST_GROUP_LINK
+            new_btn = [[InlineKeyboardButton("➡️ Go to Request Group", url=REQUEST_GROUP_LINK)]]
+            await query.message.edit_reply_markup(InlineKeyboardMarkup(new_btn))
+        except Exception:
+            pass
+
+    except Exception as e:
+        logger.error(f"movie_request_handler error: {e}")
+
+
+# ── Upload-notification "Get Movie" callback ─────────────────────────────────
+@Client.on_callback_query(filters.regex(r"^getreq#"))
+async def get_requested_movie_handler(bot, query):
+    """
+    Called when a user clicks "🎬 Get <Movie>" in the upload notification.
+    Auto-sends the movie name into NOTIFY_GROUP so the user gets the files.
+    """
+    import html as _html
+    try:
+        parts = query.data.split("#", 2)
+        movie_name = parts[1].strip() if len(parts) > 1 else "Unknown"
+        await query.answer("🔍 Searching for your movie...", show_alert=False)
+
+        from info import NOTIFY_GROUP, NOTIFY_GROUP_LINK
+        try:
+            await bot.send_message(
+                chat_id=f"@{NOTIFY_GROUP}",
+                text=movie_name
+            )
+        except Exception as e:
+            logger.error(f"get_requested_movie_handler: group send failed: {e}")
+
+        # Replace button with a redirect to that group
+        try:
+            redirect_btn = [[InlineKeyboardButton("➡️ Go to Movie Group", url=NOTIFY_GROUP_LINK)]]
+            await query.message.edit_reply_markup(InlineKeyboardMarkup(redirect_btn))
+        except Exception:
+            pass
+
+    except Exception as e:
+        logger.error(f"get_requested_movie_handler error: {e}")
+
 
 # Year 
 @Client.on_callback_query(filters.regex(r"^years#"))
@@ -3221,8 +3315,13 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
             else:
                 msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
+                _uid = msg.from_user.id if msg.from_user else 0
+                _safe = (clean_name or mv_rqst)[:28].strip()
                 btn = [[
-                    InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+                    InlineKeyboardButton(
+                        "📥 Request Movie",
+                        callback_data=f"mrequest#{_safe}#{_uid}"
+                    )
                 ]]
                 k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
             

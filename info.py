@@ -72,6 +72,16 @@ CHNL_LNK = environ.get('CHNL_LNK', 'https://t.me/A2Zmoviesa')
 TUTORIAL = environ.get('TUTORIAL', 'https://t.me/A2Z_how_to_verify')
 SUPPORT_CHAT = environ.get('SUPPORT_CHAT', 'atozmoviesrequest') # Support Chat Link Without https:// or @
 
+# Movie request tracking
+# REQUEST_GROUP: username (without @) of the group where requests are sent & notifications go
+REQUEST_GROUP = environ.get('REQUEST_GROUP', 'atozmoviesrequest')
+# REQUEST_GROUP_LINK: full t.me link for that group (for redirect buttons)
+REQUEST_GROUP_LINK = environ.get('REQUEST_GROUP_LINK', 'https://t.me/atozmoviesrequest')
+# NOTIFY_GROUP: username (without @) of the group where users search for movies
+NOTIFY_GROUP = environ.get('NOTIFY_GROUP', 'A2Zallmovierequest')
+# NOTIFY_GROUP_LINK: full t.me link for that group (for redirect after upload notification)
+NOTIFY_GROUP_LINK = environ.get('NOTIFY_GROUP_LINK', 'https://t.me/A2Zallmovierequest')
+
 # True Or False
 AI_SPELL_CHECK = bool(environ.get('AI_SPELL_CHECK', False))
 PM_SEARCH = bool(environ.get('PM_SEARCH', False))

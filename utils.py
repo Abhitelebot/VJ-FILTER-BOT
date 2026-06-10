@@ -41,6 +41,7 @@ class temp(object):
     MELCOW = {}
     U_NAME = None
     B_NAME = None
+    BOT = None   # set in bot.py after start; used by _notify_requesters
     GETALL = {}
     SHORT = {}
     SETTINGS = {}

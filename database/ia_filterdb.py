@@ -74,7 +74,72 @@ async def save_file(media):
                     temp.MOVIE_TITLES_CACHE.add(cleaned)
             except Exception as e:
                 logger.error(f"Error adding saved file to cache: {e}")
+            # Notify users who previously requested this movie
+            try:
+                import asyncio
+                asyncio.create_task(_notify_requesters(file_name))
+            except Exception as e:
+                logger.error(f"Error scheduling request notifications: {e}")
             return True, 1
+
+
+
+async def _notify_requesters(file_name: str):
+    """
+    Check for pending movie requests that match the newly uploaded file and
+    notify each requester in REQUEST_GROUP with a button to get the movie.
+    """
+    try:
+        from database.movie_requests import get_pending_requests_for_movie, mark_requests_fulfilled
+        from info import REQUEST_GROUP
+        from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        from pyrogram.enums import ParseMode
+        import html as html_mod
+        import re as _re
+
+        matching = await get_pending_requests_for_movie(file_name)
+        if not matching:
+            return
+
+        from utils import temp
+        bot = getattr(temp, 'BOT', None)
+        if bot is None:
+            logger.warning("_notify_requesters: temp.BOT not set, cannot send notifications")
+            return
+
+        cleaned_title = clean_movie_title(file_name)
+        display_title = _re.sub(r'\s*\(\d{4}\)', '', cleaned_title).strip()
+
+        for req in matching:
+            user_mention = req.get("user_mention", req.get("user_first_name", "User"))
+            movie_name = req.get("movie_name", display_title)
+            user_id = req.get("user_id")
+
+            notification_text = (
+                f"🎉 {user_mention}\n\n"
+                f"✅ Your requested movie <b>{html_mod.escape(movie_name)}</b> "
+                f"has been uploaded!\n\n"
+                f"Click the button below to get the movie 👇"
+            )
+            # Truncate movie name for callback_data (max 64 bytes total)
+            safe_name = movie_name[:28].strip()
+            btn = [[InlineKeyboardButton(
+                f"🎬 Get {movie_name}",
+                callback_data=f"getreq#{safe_name}#{user_id}"
+            )]]
+            try:
+                await bot.send_message(
+                    chat_id=f"@{REQUEST_GROUP}",
+                    text=notification_text,
+                    reply_markup=InlineKeyboardMarkup(btn),
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                logger.error(f"Failed to send upload notification for {movie_name}: {e}")
+
+        await mark_requests_fulfilled(display_title)
+    except Exception as e:
+        logger.error(f"_notify_requesters error: {e}")
 
 
 

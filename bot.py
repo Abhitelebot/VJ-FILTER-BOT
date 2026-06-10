@@ -70,6 +70,7 @@ async def start():
     temp.ME = me.id
     temp.U_NAME = me.username
     temp.B_NAME = me.first_name
+    temp.BOT = TechVJBot   # needed by _notify_requesters in ia_filterdb
     logging.info(LOG_STR)
     logging.info(script.LOGO)
     tz = pytz.timezone('Asia/Kolkata')
