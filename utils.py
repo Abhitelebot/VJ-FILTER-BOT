@@ -773,108 +773,110 @@ async def check_ott_status(movie_title):
     else:
         clean_name = movie_title.strip()
     
-    tmdb_key = TMDB_API_KEY or "2006d40511cc268e39e263d59cd4ca97"
-    if not tmdb_key:
-        return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
-        
-    url = f"https://api.themoviedb.org/3/search/multi?api_key={tmdb_key}&query={quote(clean_name)}"
-    try:
-        connector = aiohttp.TCPConnector(ssl=False)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(url, timeout=5) as response:
-                if response.status != 200:
-                    return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
-                data = await response.json()
-                results = data.get("results")
-                if not results:
-                    return await check_imdb_ott_status(movie_title, fallback_on_error_only=False)
+    # Only attempt TMDb if the user provided their own API key
+    keys_to_try = [TMDB_API_KEY] if TMDB_API_KEY else []
+    
+    for api_key in keys_to_try:
+        if not api_key:
+            continue
+        url = f"https://api.themoviedb.org/3/search/multi?api_key={api_key}&query={quote(clean_name)}"
+        try:
+            connector = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(url, timeout=5) as response:
+                    if response.status != 200:
+                        continue
+                    data = await response.json()
+                    results = data.get("results")
+                    if not results:
+                        return await check_imdb_ott_status(movie_title, fallback_on_error_only=False)
+                        
+                    first = results[0]
+                    if target_year:
+                        for item in results:
+                            item_year_str = item.get("release_date") or item.get("first_air_date")
+                            if item_year_str and item_year_str.startswith(str(target_year)):
+                                first = item
+                                break
+                                
+                    media_type = first.get("media_type")
+                    display_name = first.get("title") or first.get("name") or clean_name
                     
-                first = results[0]
-                if target_year:
-                    for item in results:
-                        item_year_str = item.get("release_date") or item.get("first_air_date")
-                        if item_year_str and item_year_str.startswith(str(target_year)):
-                            first = item
-                            break
+                    if media_type == "movie":
+                        movie_id = first.get("id")
+                        release_date_str = first.get("release_date")
+                        if not release_date_str:
+                            return "NOT_RELEASED", display_name
                             
-                media_type = first.get("media_type")
-                display_name = first.get("title") or first.get("name") or clean_name
-                
-                if media_type == "movie":
-                    movie_id = first.get("id")
-                    release_date_str = first.get("release_date")
-                    if not release_date_str:
-                        return "NOT_RELEASED", display_name
-                        
-                    try:
-                        release_date = datetime.strptime(release_date_str, "%Y-%m-%d").date()
-                    except ValueError:
-                        return "RELEASED", display_name
-                        
-                    today = datetime.now().date()
-                    if release_date > today:
-                        return "NOT_RELEASED", display_name
-                        
-                    rd_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates?api_key={TMDB_API_KEY}"
-                    async with session.get(rd_url, timeout=5) as rd_resp:
-                        if rd_resp.status == 200:
-                            rd_data = await rd_resp.json()
-                            rd_results = rd_data.get("results", [])
+                        try:
+                            release_date = datetime.strptime(release_date_str, "%Y-%m-%d").date()
+                        except ValueError:
+                            return "RELEASED", display_name
                             
-                            has_digital = False
-                            digital_date = None
-                            theatrical_date = None
+                        today = datetime.now().date()
+                        if release_date > today:
+                            return "NOT_RELEASED", display_name
                             
-                            for country_data in rd_results:
-                                for rd in country_data.get("release_dates", []):
-                                    rd_type = rd.get("type")
-                                    rd_date_str = rd.get("release_date")
-                                    if not rd_date_str:
-                                        continue
-                                    try:
-                                        parsed_date = datetime.strptime(rd_date_str[:10], "%Y-%m-%d").date()
-                                    except ValueError:
-                                        continue
-                                        
-                                    if rd_type == 4:
-                                        has_digital = True
-                                        if digital_date is None or parsed_date < digital_date:
-                                            digital_date = parsed_date
-                                    elif rd_type in [2, 3]:
-                                        if theatrical_date is None or parsed_date < theatrical_date:
-                                            theatrical_date = parsed_date
+                        rd_url = f"https://api.themoviedb.org/3/movie/{movie_id}/release_dates?api_key={api_key}"
+                        async with session.get(rd_url, timeout=5) as rd_resp:
+                            if rd_resp.status == 200:
+                                rd_data = await rd_resp.json()
+                                rd_results = rd_data.get("results", [])
+                                
+                                has_digital = False
+                                digital_date = None
+                                theatrical_date = None
+                                
+                                for country_data in rd_results:
+                                    for rd in country_data.get("release_dates", []):
+                                        rd_type = rd.get("type")
+                                        rd_date_str = rd.get("release_date")
+                                        if not rd_date_str:
+                                            continue
+                                        try:
+                                            parsed_date = datetime.strptime(rd_date_str[:10], "%Y-%m-%d").date()
+                                        except ValueError:
+                                            continue
                                             
-                            if has_digital and digital_date:
-                                if digital_date <= today:
-                                    return "RELEASED", display_name
-                                else:
-                                    return "NOT_RELEASED", display_name
-                                    
-                            theatrical_to_use = theatrical_date or release_date
-                            if theatrical_to_use:
-                                days_diff = (today - theatrical_to_use).days
-                                if days_diff >= 60:
-                                    return "RELEASED", display_name
-                                else:
-                                    return "NOT_RELEASED", display_name
-                                    
-                    return "RELEASED", display_name
-                    
-                elif media_type == "tv":
-                    first_air_date_str = first.get("first_air_date")
-                    if not first_air_date_str:
-                        return "NOT_RELEASED", display_name
-                    try:
-                        first_air_date = datetime.strptime(first_air_date_str, "%Y-%m-%d").date()
-                    except ValueError:
-                        return "RELEASED", display_name
-                    if first_air_date > datetime.now().date():
-                        return "NOT_RELEASED", display_name
-                    else:
+                                        if rd_type == 4:
+                                            has_digital = True
+                                            if digital_date is None or parsed_date < digital_date:
+                                                digital_date = parsed_date
+                                        elif rd_type in [2, 3]:
+                                            if theatrical_date is None or parsed_date < theatrical_date:
+                                                theatrical_date = parsed_date
+                                                
+                                if has_digital and digital_date:
+                                    if digital_date <= today:
+                                        return "RELEASED", display_name
+                                    else:
+                                        return "NOT_RELEASED", display_name
+                                        
+                                theatrical_to_use = theatrical_date or release_date
+                                if theatrical_to_use:
+                                    days_diff = (today - theatrical_to_use).days
+                                    if days_diff >= 60:
+                                        return "RELEASED", display_name
+                                    else:
+                                        return "NOT_RELEASED", display_name
+                                        
                         return "RELEASED", display_name
                         
-    except Exception as e:
-        logger.error(f"Error checking OTT status on TMDB: {e}")
+                    elif media_type == "tv":
+                        first_air_date_str = first.get("first_air_date")
+                        if not first_air_date_str:
+                            return "NOT_RELEASED", display_name
+                        try:
+                            first_air_date = datetime.strptime(first_air_date_str, "%Y-%m-%d").date()
+                        except ValueError:
+                            return "RELEASED", display_name
+                        if first_air_date > datetime.now().date():
+                            return "NOT_RELEASED", display_name
+                        else:
+                            return "RELEASED", display_name
+                            
+        except Exception as e:
+            logger.error(f"Error checking OTT status on TMDB with key {api_key}: {e}")
         
     return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
 
@@ -949,14 +951,13 @@ async def get_web_suggestions(query_str):
     clean_name = query_str.strip()
     suggestions = []
     
-    # 1. Search TMDB
-    tmdb_key = TMDB_API_KEY or "2006d40511cc268e39e263d59cd4ca97"
-    if tmdb_key:
-        url = f"https://api.themoviedb.org/3/search/multi?api_key={tmdb_key}&query={quote(clean_name)}"
+    # 1. Search TMDb - user's own API key from env (best fuzzy matching)
+    if TMDB_API_KEY:
+        url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
         try:
             connector = aiohttp.TCPConnector(ssl=False)
             async with aiohttp.ClientSession(connector=connector) as session:
-                async with session.get(url, timeout=5) as response:
+                async with session.get(url, timeout=6) as response:
                     if response.status == 200:
                         data = await response.json()
                         results = data.get("results", [])
@@ -973,10 +974,38 @@ async def get_web_suggestions(query_str):
                                     if len(suggestions) >= 4:
                                         break
         except Exception as e:
-            logger.error(f"Error getting TMDB suggestions: {e}")
+            logger.error(f"Error getting TMDb suggestions: {e}")
+    
+    # 2. OMDb fallback - free public keys, no registration needed
+    if len(suggestions) < 2:
+        omdb_keys = ["trilogy", "b9bd48a6"]
+        for omdb_key in omdb_keys:
+            try:
+                url = f"https://www.omdbapi.com/?s={quote(clean_name)}&apikey={omdb_key}"
+                connector = aiohttp.TCPConnector(ssl=False)
+                async with aiohttp.ClientSession(connector=connector) as session:
+                    async with session.get(url, timeout=6) as response:
+                        if response.status == 200:
+                            data = await response.json(content_type=None)
+                            if data.get("Response") == "True":
+                                for item in data.get("Search", []):
+                                    title = item.get("Title")
+                                    year_raw = item.get("Year", "")
+                                    year = year_raw.split("–")[0].strip() if year_raw else ""
+                                    year_str = f" ({year})" if year and year.isdigit() else ""
+                                    if title:
+                                        sug = f"{title}{year_str}"
+                                        if sug not in suggestions:
+                                            suggestions.append(sug)
+                                        if len(suggestions) >= 4:
+                                            break
+                                if suggestions:
+                                    break  # Got results, stop trying other OMDb keys
+            except Exception as e:
+                logger.error(f"Error getting OMDb suggestions with key {omdb_key}: {e}")
             
-    # 2. Search IMDb / Cinemagoer fallback if suggestions are fewer than 4
-    if len(suggestions) < 4:
+    # 3. Cinemagoer / IMDb fallback - may be slow or blocked on some hosts
+    if len(suggestions) < 2:
         try:
             movies = imdb.search_movie(clean_name, results=5)
             for m in movies:
@@ -993,3 +1022,4 @@ async def get_web_suggestions(query_str):
             logger.error(f"Error getting IMDb suggestions: {e}")
             
     return suggestions[:4]
+
