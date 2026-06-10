@@ -307,7 +307,7 @@ async def find_similar_titles(query_str):
                 candidates_map[cand_no_year] = cand
                 
     # Perform fuzzy search on candidates without year
-    matches_no_year = difflib.get_close_matches(query_clean_no_year, list(candidates_map.keys()), n=4, cutoff=0.5)
+    matches_no_year = difflib.get_close_matches(query_clean_no_year, list(candidates_map.keys()), n=4, cutoff=0.6)
     
     # Map back to original titles
     matches = [candidates_map[m] for m in matches_no_year if m in candidates_map]

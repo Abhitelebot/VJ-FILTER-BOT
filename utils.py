@@ -965,9 +965,27 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
             
             return "RELEASED", display_name
         else:
+            # Fallback heuristic using the year in the query/title
+            year_match = re.search(r'\b(19|20)\d{2}\b', movie_title)
+            if year_match:
+                year = int(year_match.group(0))
+                current_year = datetime.now().year
+                if year >= current_year:
+                    return "NOT_RELEASED", clean_name
+                else:
+                    return "RELEASED", clean_name
             return "NOT_FOUND", clean_name
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
+        # Fallback heuristic using the year in the query/title on exception
+        year_match = re.search(r'\b(19|20)\d{2}\b', movie_title)
+        if year_match:
+            year = int(year_match.group(0))
+            current_year = datetime.now().year
+            if year >= current_year:
+                return "NOT_RELEASED", clean_name
+            else:
+                return "RELEASED", clean_name
         return "NOT_FOUND", clean_name
 
 
@@ -1049,7 +1067,55 @@ async def _get_web_suggestions_impl(query_str):
                         break
             except Exception as e:
                 logger.error(f"OMDb direct search error: {e}")
-        
+        # Tier 2.5: Google Autocomplete (handles new/unindexed releases like "Peddi" and "Karuppu 2026")
+        if len(suggestions) < 2:
+            try:
+                def clean_google_suggestion(sug):
+                    import re
+                    sug_lower = sug.lower().strip()
+                    year_match = re.search(r'\b(19|20)\d{2}\b', sug_lower)
+                    year = year_match.group(0) if year_match else None
+                    if year:
+                        sug_lower = sug_lower.replace(year, "")
+                    suffixes = [
+                        "movie", "ott", "release date", "review", "tamil movie", "telugu movie", 
+                        "hindi", "tamil", "telugu", "download", "collection", "box office", 
+                        "hit or flop", "budget", "cast", "story", "songs", "teaser", "trailer", 
+                        "wiki", "imdb", "rating", "watch online", "streaming", "online", "full",
+                        "worldwide", "success", "rating", "kannada", "malayalam"
+                    ]
+                    suffixes.sort(key=len, reverse=True)
+                    for suffix in suffixes:
+                        sug_lower = re.sub(r'\b' + re.escape(suffix) + r'\b', '', sug_lower)
+                    sug_clean = re.sub(r'\s+', ' ', sug_lower).strip()
+                    if not sug_clean:
+                        return None
+                    title = sug_clean.title()
+                    title = title.replace("()", "").replace("[]", "")
+                    title = re.sub(r'\s+', ' ', title).strip()
+                    if year:
+                        return f"{title} ({year})"
+                    return title
+
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+                google_url = f"https://suggestqueries.google.com/complete/search?client=chrome&q={quote(clean_name)}"
+                async with session.get(google_url, headers=headers, timeout=6) as response:
+                    if response.status == 200:
+                        data = await response.json(content_type=None)
+                        raw_sugs = data[1]
+                        seen = {s.lower() for s in suggestions}
+                        for rs in raw_sugs:
+                            cs = clean_google_suggestion(rs)
+                            if cs and cs.lower() not in seen:
+                                seen.add(cs.lower())
+                                suggestions.append(cs)
+                            if len(suggestions) >= 4:
+                                break
+            except Exception as e:
+                logger.error(f"Google Autocomplete suggestions error: {e}")
+
         # Tier 3: Datamuse spell-correction + OMDb (handles typos like "kanatara" -> "kantara")
         if len(suggestions) < 2:
             try:
