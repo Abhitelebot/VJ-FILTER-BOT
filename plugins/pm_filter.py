@@ -363,6 +363,16 @@ async def advantage_spoll_choker(bot, query):
         from utils import check_ott_status
         import html
         status, clean_name = await check_ott_status(movie)
+        if clean_name:
+            clean_name_cleaned = re.sub(r'\s*\(\d{4}\)', '', clean_name).strip()
+            clean_name_cleaned = re.sub(r'[:\-]', ' ', clean_name_cleaned)
+            clean_name_cleaned = re.sub(r'\s+', ' ', clean_name_cleaned).strip()
+            if clean_name_cleaned.lower() != search_movie.lower():
+                fallback_files_raw, _, _ = await get_search_results(query.message.chat.id, clean_name_cleaned, offset=0, max_results=100, filter=True)
+                fallback_files = [f for f in fallback_files_raw if is_same_movie(clean_name, f.file_name)] if fallback_files_raw else []
+                if fallback_files:
+                    k = (clean_name_cleaned, fallback_files, 0, len(fallback_files))
+                    return await auto_filter(bot, clean_name_cleaned, query, query.message, False, k)
         if status == "NOT_RELEASED":
             msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
             k = await query.message.edit(text=msg_text, reply_markup=None)
@@ -3128,6 +3138,8 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         cleaned_query = clean_for_ratio(mv_rqst)
         for title in suggestions:
             cleaned_title = clean_for_ratio(title)
+            if cleaned_title == cleaned_query and '(' not in title:
+                continue
             ratio = difflib.SequenceMatcher(None, cleaned_query, cleaned_title).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
@@ -3169,6 +3181,15 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         else:
             # Not in DB → check OTT release status
             status, clean_name = await check_ott_status(best_match)
+            if clean_name:
+                clean_name_cleaned = re.sub(r'\s*\(\d{4}\)', '', clean_name).strip()
+                clean_name_cleaned = re.sub(r'[:\-]', ' ', clean_name_cleaned)
+                clean_name_cleaned = re.sub(r'\s+', ' ', clean_name_cleaned).strip()
+                if clean_name_cleaned.lower() != search_title.lower():
+                    fallback_db_files_raw, _, _ = await get_search_results(msg.chat.id, clean_name_cleaned, offset=0, max_results=100, filter=True)
+                    fallback_db_files = [f for f in fallback_db_files_raw if is_same_movie(clean_name, f.file_name)] if fallback_db_files_raw else []
+                    if fallback_db_files:
+                        return await auto_filter(client, clean_name_cleaned, msg, reply_msg, vj_search)
             if status == "NOT_RELEASED":
                 msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
                 k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
