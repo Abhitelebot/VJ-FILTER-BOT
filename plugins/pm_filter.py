@@ -3175,6 +3175,29 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                             db_offset, db_total = f_offset, len(db_files)
                             search_title = fallback_title
 
+        # ── NEW: try other high-ratio suggestions if primary miss ──
+        # e.g. "kanatar" → best_match="Kanatara" (not in DB)
+        # but "Kantara" (ratio 0.86) IS in DB → catch it here
+        if not db_files and suggestions:
+            for alt_title in suggestions:
+                if alt_title == best_match:
+                    continue
+                alt_clean = clean_for_ratio(alt_title)
+                alt_ratio = difflib.SequenceMatcher(None, clean_for_ratio(mv_rqst), alt_clean).ratio()
+                if alt_ratio < 0.8:
+                    continue
+                alt_search = re.sub(r'\s*\(\d{4}\)', '', alt_title).strip()
+                alt_search = re.sub(r'[:\-]', ' ', alt_search)
+                alt_search = re.sub(r'\s+', ' ', alt_search).strip()
+                alt_raw, alt_off, alt_tot = await get_search_results(msg.chat.id, alt_search, offset=0, max_results=100, filter=True)
+                alt_matched = [f for f in alt_raw if is_same_movie(alt_title, f.file_name)] if alt_raw else []
+                if alt_matched:
+                    search_title = alt_search
+                    best_match = alt_title
+                    db_files = alt_matched
+                    db_offset, db_total = alt_off, len(alt_matched)
+                    break
+
         if db_files:
             # Found in DB → show file list via auto_filter
             return await auto_filter(client, search_title, msg, reply_msg, vj_search)
