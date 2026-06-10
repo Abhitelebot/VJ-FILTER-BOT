@@ -301,7 +301,11 @@ async def advantage_spoll_choker(bot, query):
             return False
             
         ratio = difflib.SequenceMatcher(None, q_root, f_root).ratio()
-        return ratio >= 0.85
+        if ratio >= 0.85:
+            return True
+        if ratio >= 0.55 and (f_root == q_root or f_root.endswith(" " + q_root)):
+            return True
+        return False
 
     _, user, movie_ = query.data.split('#')
     movies = SPELL_CHECK.get(query.message.id)
@@ -3093,7 +3097,11 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             return False
             
         ratio = difflib.SequenceMatcher(None, q_root, f_root).ratio()
-        return ratio >= 0.85
+        if ratio >= 0.85:
+            return True
+        if ratio >= 0.55 and (f_root == q_root or f_root.endswith(" " + q_root)):
+            return True
+        return False
 
     mv_id = msg.id
     mv_rqst = name

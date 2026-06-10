@@ -881,6 +881,35 @@ async def check_ott_status(movie_title):
     return await check_imdb_ott_status(movie_title, fallback_on_error_only=True)
 
 
+def get_movie_year_from_web(title):
+    import urllib.request
+    import urllib.parse
+    import re
+    try:
+        query = f"{title} movie release date"
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=6) as response:
+            html = response.read().decode('utf-8')
+            snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+            all_text = " ".join(snippets)
+            all_text = re.sub(r'<[^>]*>', '', all_text)
+            
+            years = re.findall(r'\b(202\d|201\d|19\d{2})\b', all_text)
+            if years:
+                counts = {}
+                for y in years:
+                    counts[y] = counts.get(y, 0) + 1
+                sorted_years = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+                return int(sorted_years[0][0])
+    except Exception:
+        pass
+    return None
+
+
 async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
     from utils import imdb as cinemagoer
     import re
@@ -967,8 +996,10 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
         else:
             # Fallback heuristic using the year in the query/title
             year_match = re.search(r'\b(19|20)\d{2}\b', movie_title)
-            if year_match:
-                year = int(year_match.group(0))
+            year = int(year_match.group(0)) if year_match else None
+            if not year:
+                year = get_movie_year_from_web(clean_name)
+            if year:
                 current_year = datetime.now().year
                 if year >= current_year:
                     return "NOT_RELEASED", clean_name
@@ -979,8 +1010,10 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
         logger.error(f"IMDb fallback OTT check failed: {e}")
         # Fallback heuristic using the year in the query/title on exception
         year_match = re.search(r'\b(19|20)\d{2}\b', movie_title)
-        if year_match:
-            year = int(year_match.group(0))
+        year = int(year_match.group(0)) if year_match else None
+        if not year:
+            year = get_movie_year_from_web(clean_name)
+        if year:
             current_year = datetime.now().year
             if year >= current_year:
                 return "NOT_RELEASED", clean_name
