@@ -3002,8 +3002,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     from utils import get_web_suggestions, check_ott_status
     import difflib
     import re
-    
     suggestions = await get_web_suggestions(mv_rqst)
+    if not suggestions:
+        from database.ia_filterdb import find_similar_titles
+        suggestions = await find_similar_titles(mv_rqst)
     
     def clean_for_ratio(title):
         t = re.sub(r'\s*\(\d{4}\)', '', title).strip().lower()

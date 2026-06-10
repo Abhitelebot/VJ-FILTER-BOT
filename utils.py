@@ -115,7 +115,7 @@ async def get_poster(query, bulk=False, id=False, file=None):
             else:
                 year = None
         try:
-            movieid = imdb.search_movie(title.lower(), results=10)
+            movieid = await asyncio.to_thread(imdb.search_movie, title.lower(), results=10)
         except Exception as e:
             logger.error(f"IMDb search error in get_poster: {e}")
             return None
@@ -136,7 +136,7 @@ async def get_poster(query, bulk=False, id=False, file=None):
     else:
         movieid = query
     try:
-        movie = imdb.get_movie(movieid)
+        movie = await asyncio.to_thread(imdb.get_movie, movieid)
     except Exception as e:
         logger.error(f"IMDb get_movie error in get_poster: {e}")
         return None
@@ -895,8 +895,30 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
     else:
         clean_name = movie_title.strip()
         
+    def parse_imdb_date(date_str):
+        if not date_str:
+            return None
+        # Remove country suffix in parentheses, e.g. "04 Jun 2026 (India)" -> "04 Jun 2026"
+        date_str = re.sub(r'\(.*?\)', '', str(date_str)).strip()
+        formats = [
+            "%d %b %Y",    # "04 Jun 2026"
+            "%d %B %Y",    # "04 June 2026"
+            "%Y-%m-%d",    # "2026-06-04"
+            "%b %d, %Y",   # "Jun 04, 2026"
+            "%B %d, %Y",   # "June 04, 2026"
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(date_str, fmt).date()
+            except ValueError:
+                continue
+        return None
+
     try:
-        movies = cinemagoer.search_movie(clean_name, results=5)
+        movies = await asyncio.wait_for(
+            asyncio.to_thread(cinemagoer.search_movie, clean_name, results=5),
+            timeout=10.0
+        )
         if movies:
             first = movies[0]
             if target_year:
@@ -904,45 +926,63 @@ async def check_imdb_ott_status(movie_title, fallback_on_error_only=True):
                     if m.get('year') == target_year:
                         first = m
                         break
-            movie = cinemagoer.get_movie(first.movieID)
+            movie = await asyncio.wait_for(
+                asyncio.to_thread(cinemagoer.get_movie, first.movieID),
+                timeout=10.0
+            )
             kind = movie.get('kind')
             display_name = movie.get('title') or clean_name
             
-            if kind == 'tv series':
-                year = movie.get('year')
-                if year:
-                    current_year = datetime.now().year
-                    if year > current_year:
+            # Check if we have a parsed date from 'original air date'
+            air_date_str = movie.get('original air date')
+            parsed_date = parse_imdb_date(air_date_str)
+            
+            if parsed_date:
+                today = datetime.now().date()
+                if parsed_date > today:
+                    return "NOT_RELEASED", display_name
+                elif kind == 'tv series':
+                    return "RELEASED", display_name
+                else:
+                    # For movies, theatrical-to-OTT window (45 days)
+                    days_diff = (today - parsed_date).days
+                    if days_diff >= 45:
+                        return "RELEASED", display_name
+                    else:
                         return "NOT_RELEASED", display_name
-                return "RELEASED", display_name
-            else:
-                year = movie.get('year')
-                if year:
-                    current_year = datetime.now().year
-                    if year > current_year:
-                        return "NOT_RELEASED", display_name
-                        
-                release_date_str = movie.get('original air date') or movie.get('year')
-                if release_date_str:
-                    match = re.search(r'\b(19|20)\d{2}\b', str(release_date_str))
-                    if match:
-                        rel_year = int(match.group(0))
-                        if rel_year > datetime.now().year:
-                            return "NOT_RELEASED", display_name
-                        elif rel_year < datetime.now().year:
-                            return "RELEASED", display_name
-                return "RELEASED", display_name
+            
+            # Fallback to year check
+            year = movie.get('year')
+            if year:
+                current_year = datetime.now().year
+                if year > current_year:
+                    return "NOT_RELEASED", display_name
+                elif year < current_year:
+                    return "RELEASED", display_name
+                else:
+                    # Current year without specific release date
+                    return "NOT_RELEASED", display_name
+            
+            return "RELEASED", display_name
         else:
-            if fallback_on_error_only:
-                return "RELEASED", clean_name
-            else:
-                return "NOT_FOUND", clean_name
+            return "NOT_FOUND", clean_name
     except Exception as e:
         logger.error(f"IMDb fallback OTT check failed: {e}")
-        return "RELEASED", clean_name
+        return "NOT_FOUND", clean_name
 
 
 async def get_web_suggestions(query_str):
+    try:
+        return await asyncio.wait_for(_get_web_suggestions_impl(query_str), timeout=12.0)
+    except asyncio.TimeoutError:
+        logger.error(f"get_web_suggestions timed out for query: {query_str}")
+        return []
+    except Exception as e:
+        logger.error(f"get_web_suggestions failed: {e}")
+        return []
+
+
+async def _get_web_suggestions_impl(query_str):
     import aiohttp
     import ssl
     from urllib.parse import quote
@@ -1047,17 +1087,21 @@ async def get_web_suggestions(query_str):
         # Tier 4: Cinemagoer / IMDb last resort
         if len(suggestions) < 2:
             try:
-                movies = imdb.search_movie(clean_name, results=5)
-                for m in movies:
-                    title = m.get("title")
-                    year = m.get("year")
-                    year_str = f" ({year})" if year else ""
-                    if title:
-                        sug = f"{title}{year_str}"
-                        if sug not in suggestions:
-                            suggestions.append(sug)
-                        if len(suggestions) >= 4:
-                            break
+                movies = await asyncio.wait_for(
+                    asyncio.to_thread(imdb.search_movie, clean_name, results=5),
+                    timeout=8.0
+                )
+                if movies:
+                    for m in movies:
+                        title = m.get("title")
+                        year = m.get("year")
+                        year_str = f" ({year})" if year else ""
+                        if title:
+                            sug = f"{title}{year_str}"
+                            if sug not in suggestions:
+                                suggestions.append(sug)
+                            if len(suggestions) >= 4:
+                                break
             except Exception as e:
                 logger.error(f"Cinemagoer suggestions error: {e}")
     
