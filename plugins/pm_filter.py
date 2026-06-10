@@ -462,32 +462,36 @@ async def movie_request_handler(bot, query):
 async def get_requested_movie_handler(bot, query):
     """
     Called when a user clicks "🎬 Get <Movie>" in the upload notification.
-    Auto-sends the movie name into NOTIFY_GROUP so the user gets the files.
+    
+    Instead of the bot sending the message (which it can't reply to itself),
+    we give the user a deep link that opens the group with the movie name
+    pre-filled in the text box.  The user presses Send → bot replies normally.
     """
-    import html as _html
+    from urllib.parse import quote
     try:
         parts = query.data.split("#", 2)
         movie_name = parts[1].strip() if len(parts) > 1 else "Unknown"
-        await query.answer("🔍 Searching for your movie...", show_alert=False)
+        await query.answer("🎬 Tap the button below to get your movie!", show_alert=False)
 
         from info import NOTIFY_GROUP, NOTIFY_GROUP_LINK
-        try:
-            await bot.send_message(
-                chat_id=f"@{NOTIFY_GROUP}",
-                text=movie_name
-            )
-        except Exception as e:
-            logger.error(f"get_requested_movie_handler: group send failed: {e}")
+        # tg://resolve?domain=GROUP&text=MOVIE opens the chat with text pre-filled.
+        # The user just presses Send — it becomes their message, bot replies normally.
+        deep_link = f"tg://resolve?domain={NOTIFY_GROUP}&text={quote(movie_name)}"
 
-        # Replace button with a redirect to that group
+        redirect_btn = [[
+            InlineKeyboardButton(
+                f"🎬 Send \"{movie_name}\" in Group",
+                url=deep_link
+            )
+        ]]
         try:
-            redirect_btn = [[InlineKeyboardButton("➡️ Go to Movie Group", url=NOTIFY_GROUP_LINK)]]
             await query.message.edit_reply_markup(InlineKeyboardMarkup(redirect_btn))
         except Exception:
             pass
 
     except Exception as e:
         logger.error(f"get_requested_movie_handler error: {e}")
+
 
 
 # Year 
