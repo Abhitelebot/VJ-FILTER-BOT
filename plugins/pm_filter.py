@@ -326,7 +326,7 @@ async def advantage_spoll_choker(bot, query):
     if not files:
         search_no_year = re.sub(r'\s*\b(19|20)\d{2}\b', '', search_movie).strip()
         if search_no_year != search_movie:
-            temp_files, temp_offset, temp_total = await get_search_results(query.message.chat.id, search_no_year, offset=0, filter=True)
+            temp_files, temp_offset, temp_total = await get_search_results(query.message.chat.id, search_no_year, offset=0, max_results=100, filter=True)
             if temp_files:
                 matched_files = [f for f in temp_files if is_same_movie(movie, f.file_name)]
                 if matched_files:
@@ -349,7 +349,7 @@ async def advantage_spoll_choker(bot, query):
                 search_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip()
                 search_title = re.sub(r'[:\-]', ' ', search_title)
                 search_title = re.sub(r'\s+', ' ', search_title).strip()
-                db_files, db_offset, db_total = await get_search_results(query.message.chat.id, search_title, offset=0, filter=True)
+                db_files, db_offset, db_total = await get_search_results(query.message.chat.id, search_title, offset=0, max_results=100, filter=True)
                 if db_files:
                     matched_db_files = [f for f in db_files if is_same_movie(movie, f.file_name)]
                     if matched_db_files:
@@ -3142,7 +3142,7 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         search_title = re.sub(r'[:\-]', ' ', search_title)
         search_title = re.sub(r'\s+', ' ', search_title).strip()
         
-        db_files_raw, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, filter=True)
+        db_files_raw, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, max_results=100, filter=True)
         db_files = [f for f in db_files_raw if is_same_movie(best_match, f.file_name)] if db_files_raw else []
         if not db_files:
             from database.ia_filterdb import find_similar_titles
@@ -3156,7 +3156,7 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                     fallback_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip()
                     fallback_title = re.sub(r'[:\-]', ' ', fallback_title)
                     fallback_title = re.sub(r'\s+', ' ', fallback_title).strip()
-                    f_files, f_offset, f_total = await get_search_results(msg.chat.id, fallback_title, offset=0, filter=True)
+                    f_files, f_offset, f_total = await get_search_results(msg.chat.id, fallback_title, offset=0, max_results=100, filter=True)
                     if f_files:
                         db_files = [f for f in f_files if is_same_movie(best_match, f.file_name)]
                         if db_files:

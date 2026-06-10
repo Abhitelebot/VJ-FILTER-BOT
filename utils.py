@@ -1106,7 +1106,7 @@ async def _get_web_suggestions_impl(query_str):
                 def clean_google_suggestion(sug):
                     import re
                     sug_lower = sug.lower().strip()
-                    if any(w in sug_lower for w in ["http", "/", ".com", ".co", ".net", "ringtone", "mp3", "bgm", "song", "lyrics", "wallpaper", "status"]):
+                    if any(w in sug_lower for w in ["http", "/", ".com", ".co", ".net", "ringtone", "mp3", "bgm", "song", "lyrics", "wallpaper", "status", "mobcup", "jeans", "app", "download", "mp4", "music"]):
                         return None
                     year_match = re.search(r'\b(19|20)\d{2}\b', sug_lower)
                     year = year_match.group(0) if year_match else None
