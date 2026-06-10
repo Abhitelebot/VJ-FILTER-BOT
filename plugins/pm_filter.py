@@ -3021,50 +3021,62 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 best_ratio = ratio
                 best_match = title
 
-    # Direct match threshold: if ratio >= 0.95
-    if suggestions and best_ratio >= 0.95:
-        status, clean_name = await check_ott_status(best_match)
-        import html
-        if status == "NOT_RELEASED":
-            msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        elif status == "NOT_FOUND":
-            msg_text = script.MVE_NOT_FOUND_SPELL
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        else:
-            msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
-            btn = [[
-                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
-            ]]
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+    # ── Case 1: High-confidence match (ratio >= 0.9) ──
+    # Check DB FIRST. If found, show files. Only check OTT if NOT in DB.
+    import html
+    if suggestions and best_ratio >= 0.9:
+        # Strip year for DB search e.g. "Kantara (2022)" -> "Kantara"
+        search_title = re.sub(r'\s*\(\d{4}\)', '', best_match).strip()
+        search_title = re.sub(r'[:\-]', ' ', search_title)
+        search_title = re.sub(r'\s+', ' ', search_title).strip()
         
-        await asyncio.sleep(30)
-        try:
-            await k.delete()
-        except:
-            pass
-        return
-
-    # If it's a spelling suggestion (0.4 <= best_ratio < 0.95)
-    elif suggestions and best_ratio >= 0.4:
-        import html
-        if best_ratio >= 0.7:
-            # Case 1: Wrong spelling (High confidence)
-            msg_text = f"I COULDN'T FIND ANYTHING FOR {html.escape(mv_rqst.lower())} . DID YOU MEAN ANY OF THESE BELOW :"
+        db_files, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, filter=True)
+        
+        if db_files:
+            # Found in DB → show file list via auto_filter
+            k_tuple = (search_title, db_files, db_offset, db_total)
+            return await auto_filter(client, search_title, msg, reply_msg, vj_search, k_tuple)
         else:
-            # Case 5: Low confidence match
-            msg_text = "Did you mean?"
+            # Not in DB → check OTT release status
+            status, clean_name = await check_ott_status(best_match)
+            if status == "NOT_RELEASED":
+                msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
+                k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+            elif status == "NOT_FOUND":
+                msg_text = script.MVE_NOT_FOUND_SPELL
+                k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
+            else:
+                msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
+                btn = [[
+                    InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
+                ]]
+                k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
+            
+            await asyncio.sleep(30)
+            try:
+                await k.delete()
+            except:
+                pass
+            return
+
+    # ── Case 2: Spelling suggestion (0.4 <= ratio < 0.9) ──
+    # Show a list of close matches for the user to pick from.
+    elif suggestions and best_ratio >= 0.4:
+        if best_ratio >= 0.7:
+            msg_text = f"I couldn't find <b>{html.escape(mv_rqst)}</b>. Did you mean any of these?"
+        else:
+            msg_text = "Did you mean one of these?"
             
         btn = [
             [
                 InlineKeyboardButton(
-                    text=f"{title}",
+                    text=f"🎬 {title}",
                     callback_data=f"spol#{reqstr1}#{k}"
                 )
             ]
             for k, title in enumerate(suggestions)
         ]
-        btn.append([InlineKeyboardButton(text="Close", callback_data=f'spol#{reqstr1}#close_spellcheck')])
+        btn.append([InlineKeyboardButton(text="✖ Close", callback_data=f'spol#{reqstr1}#close_spellcheck')])
         
         spell_check_del = await reply_msg.edit_text(
             text=msg_text,
@@ -3086,22 +3098,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         return
         
     else:
-        # No matching titles
-        status, clean_name = await check_ott_status(mv_rqst)
-        import html
-        if status == "NOT_RELEASED":
-            msg_text = script.MVE_NOT_OTT.format(html.escape(clean_name))
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        elif status == "NOT_FOUND":
-            msg_text = script.MVE_NOT_FOUND_SPELL
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
-        else:
-            msg_text = script.MVE_OTT_NOT_DB.format(html.escape(clean_name))
-            btn = [[
-                InlineKeyboardButton("📥 Request Movie", url="https://t.me/atozmoviesrequest")
-            ]]
-            k = await reply_msg.edit_text(text=msg_text, reply_markup=InlineKeyboardMarkup(btn))
-            
+        # ── Case 3: No suggestions — show "No movie found" only ──
+        # Do NOT run OTT check for garbled/unknown queries.
+        msg_text = script.MVE_NOT_FOUND_SPELL
+        k = await reply_msg.edit_text(text=msg_text, reply_markup=None)
         await asyncio.sleep(30)
         try:
             await k.delete()

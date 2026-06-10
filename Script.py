@@ -180,8 +180,8 @@ Please use the button below to submit a request."""
 
 ⏳ This movie has not been released on OTT yet.
 
-Please wait for the official OTT release.
-Requests are disabled for unreleased movies."""
+Please wait for the official OTT release date.
+We upload only HD quality movies once they are available on OTT."""
 
     MVE_OTT_NOT_DB = """🎬 <b>{}</b>
 

@@ -951,17 +951,39 @@ async def get_web_suggestions(query_str):
     clean_name = query_str.strip()
     suggestions = []
     
-    # 1. Search TMDb - user's own API key from env (best fuzzy matching)
-    if TMDB_API_KEY:
-        url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
-        try:
-            connector = aiohttp.TCPConnector(ssl=False)
-            async with aiohttp.ClientSession(connector=connector) as session:
+    # Helper: search OMDb by query string
+    async def omdb_search(query, session):
+        for omdb_key in ["trilogy", "b9bd48a6"]:
+            try:
+                url = f"https://www.omdbapi.com/?s={quote(query)}&apikey={omdb_key}"
+                async with session.get(url, timeout=6) as response:
+                    if response.status == 200:
+                        data = await response.json(content_type=None)
+                        if data.get("Response") == "True":
+                            results = []
+                            for item in data.get("Search", []):
+                                title = item.get("Title")
+                                year_raw = item.get("Year", "")
+                                year = year_raw.split("\u2013")[0].split("-")[0].strip() if year_raw else ""
+                                year_str = f" ({year})" if year and year.isdigit() else ""
+                                if title:
+                                    results.append(f"{title}{year_str}")
+                            return results
+            except Exception as e:
+                logger.error(f"OMDb error key={omdb_key}: {e}")
+        return []
+    
+    connector = aiohttp.TCPConnector(ssl=False)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        
+        # Tier 1: TMDb (user's own key - best fuzzy matching)
+        if TMDB_API_KEY:
+            try:
+                url = f"https://api.themoviedb.org/3/search/multi?api_key={TMDB_API_KEY}&query={quote(clean_name)}"
                 async with session.get(url, timeout=6) as response:
                     if response.status == 200:
                         data = await response.json()
-                        results = data.get("results", [])
-                        for item in results:
+                        for item in data.get("results", []):
                             media_type = item.get("media_type")
                             if media_type in ["movie", "tv"]:
                                 title = item.get("title") or item.get("name")
@@ -973,53 +995,73 @@ async def get_web_suggestions(query_str):
                                         suggestions.append(sug)
                                     if len(suggestions) >= 4:
                                         break
-        except Exception as e:
-            logger.error(f"Error getting TMDb suggestions: {e}")
-    
-    # 2. OMDb fallback - free public keys, no registration needed
-    if len(suggestions) < 2:
-        omdb_keys = ["trilogy", "b9bd48a6"]
-        for omdb_key in omdb_keys:
-            try:
-                url = f"https://www.omdbapi.com/?s={quote(clean_name)}&apikey={omdb_key}"
-                connector = aiohttp.TCPConnector(ssl=False)
-                async with aiohttp.ClientSession(connector=connector) as session:
-                    async with session.get(url, timeout=6) as response:
-                        if response.status == 200:
-                            data = await response.json(content_type=None)
-                            if data.get("Response") == "True":
-                                for item in data.get("Search", []):
-                                    title = item.get("Title")
-                                    year_raw = item.get("Year", "")
-                                    year = year_raw.split("–")[0].strip() if year_raw else ""
-                                    year_str = f" ({year})" if year and year.isdigit() else ""
-                                    if title:
-                                        sug = f"{title}{year_str}"
-                                        if sug not in suggestions:
-                                            suggestions.append(sug)
-                                        if len(suggestions) >= 4:
-                                            break
-                                if suggestions:
-                                    break  # Got results, stop trying other OMDb keys
             except Exception as e:
-                logger.error(f"Error getting OMDb suggestions with key {omdb_key}: {e}")
-            
-    # 3. Cinemagoer / IMDb fallback - may be slow or blocked on some hosts
-    if len(suggestions) < 2:
-        try:
-            movies = imdb.search_movie(clean_name, results=5)
-            for m in movies:
-                title = m.get("title")
-                year = m.get("year")
-                year_str = f" ({year})" if year else ""
-                if title:
-                    sug = f"{title}{year_str}"
+                logger.error(f"TMDb suggestions error: {e}")
+        
+        # Tier 2: OMDb direct search
+        if len(suggestions) < 2:
+            try:
+                direct = await omdb_search(clean_name, session)
+                for sug in direct:
                     if sug not in suggestions:
                         suggestions.append(sug)
                     if len(suggestions) >= 4:
                         break
-        except Exception as e:
-            logger.error(f"Error getting IMDb suggestions: {e}")
-            
+            except Exception as e:
+                logger.error(f"OMDb direct search error: {e}")
+        
+        # Tier 3: Datamuse spell-correction + OMDb (handles typos like "kanatara" -> "kantara")
+        if len(suggestions) < 2:
+            try:
+                words = clean_name.lower().split()
+                corrected_words = []
+                any_corrected = False
+                for word in words:
+                    if len(word) > 3:
+                        dm_url = f"https://api.datamuse.com/words?sp={quote(word)}&max=1"
+                        async with session.get(dm_url, timeout=5) as dm_resp:
+                            if dm_resp.status == 200:
+                                dm_data = await dm_resp.json()
+                                if dm_data and dm_data[0].get("word", "").lower() != word.lower():
+                                    corrected_words.append(dm_data[0]["word"])
+                                    any_corrected = True
+                                else:
+                                    corrected_words.append(word)
+                            else:
+                                corrected_words.append(word)
+                    else:
+                        corrected_words.append(word)
+                
+                if any_corrected:
+                    corrected_query = " ".join(corrected_words)
+                    logger.info(f"Spell-corrected: '{clean_name}' -> '{corrected_query}'")
+                    corrected = await omdb_search(corrected_query, session)
+                    for sug in corrected:
+                        if sug not in suggestions:
+                            suggestions.append(sug)
+                        if len(suggestions) >= 4:
+                            break
+            except Exception as e:
+                logger.error(f"Datamuse+OMDb error: {e}")
+        
+        # Tier 4: Cinemagoer / IMDb last resort
+        if len(suggestions) < 2:
+            try:
+                movies = imdb.search_movie(clean_name, results=5)
+                for m in movies:
+                    title = m.get("title")
+                    year = m.get("year")
+                    year_str = f" ({year})" if year else ""
+                    if title:
+                        sug = f"{title}{year_str}"
+                        if sug not in suggestions:
+                            suggestions.append(sug)
+                        if len(suggestions) >= 4:
+                            break
+            except Exception as e:
+                logger.error(f"Cinemagoer suggestions error: {e}")
+    
     return suggestions[:4]
+
+
 
