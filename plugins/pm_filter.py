@@ -295,6 +295,13 @@ async def advantage_spoll_choker(bot, query):
     search_movie = re.sub(r"\s+", " ", search_movie).strip()
     await query.answer(script.TOP_ALRT_MSG)
     files, offset, total_results = await get_search_results(query.message.chat.id, search_movie, offset=0, filter=True)
+    if not files:
+        search_no_year = re.sub(r'\s*\b(19|20)\d{2}\b', '', search_movie).strip()
+        if search_no_year != search_movie:
+            files, offset, total_results = await get_search_results(query.message.chat.id, search_no_year, offset=0, filter=True)
+            if files:
+                search_movie = search_no_year
+
     if files:
         k = (search_movie, files, offset, total_results)
         await auto_filter(bot, search_movie, query, query.message, False, k)

@@ -806,7 +806,7 @@ async def check_ott_status(movie_title):
                         movie_id = first.get("id")
                         release_date_str = first.get("release_date")
                         if not release_date_str:
-                            return "NOT_RELEASED", display_name
+                            return "RELEASED", display_name
                             
                         try:
                             release_date = datetime.strptime(release_date_str, "%Y-%m-%d").date()
@@ -865,7 +865,7 @@ async def check_ott_status(movie_title):
                     elif media_type == "tv":
                         first_air_date_str = first.get("first_air_date")
                         if not first_air_date_str:
-                            return "NOT_RELEASED", display_name
+                            return "RELEASED", display_name
                         try:
                             first_air_date = datetime.strptime(first_air_date_str, "%Y-%m-%d").date()
                         except ValueError:
