@@ -302,6 +302,25 @@ async def advantage_spoll_choker(bot, query):
             if files:
                 search_movie = search_no_year
 
+    if not files:
+        import difflib
+        from database.ia_filterdb import find_similar_titles
+        db_sugs = await find_similar_titles(search_movie)
+        if db_sugs:
+            cleaned_query = re.sub(r'\s*\(\d{4}\)', '', search_movie).strip().lower()
+            cleaned_query = re.sub(r'[^a-z0-9\s]', '', cleaned_query)
+            cleaned_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip().lower()
+            cleaned_title = re.sub(r'[^a-z0-9\s]', '', cleaned_title)
+            ratio = difflib.SequenceMatcher(None, cleaned_query, cleaned_title).ratio()
+            if ratio >= 0.8:
+                search_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip()
+                search_title = re.sub(r'[:\-]', ' ', search_title)
+                search_title = re.sub(r'\s+', ' ', search_title).strip()
+                db_files, db_offset, db_total = await get_search_results(query.message.chat.id, search_title, offset=0, filter=True)
+                if db_files:
+                    files, offset, total_results = db_files, db_offset, db_total
+                    search_movie = search_title
+
     if files:
         k = (search_movie, files, offset, total_results)
         await auto_filter(bot, search_movie, query, query.message, False, k)
@@ -3040,7 +3059,23 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         search_title = re.sub(r'\s+', ' ', search_title).strip()
         
         db_files, db_offset, db_total = await get_search_results(msg.chat.id, search_title, offset=0, filter=True)
-        
+        if not db_files:
+            from database.ia_filterdb import find_similar_titles
+            db_sugs = await find_similar_titles(search_title)
+            if db_sugs:
+                cleaned_query = re.sub(r'[^a-z0-9\s]', '', search_title.lower())
+                cleaned_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip().lower()
+                cleaned_title = re.sub(r'[^a-z0-9\s]', '', cleaned_title)
+                ratio = difflib.SequenceMatcher(None, cleaned_query, cleaned_title).ratio()
+                if ratio >= 0.8:
+                    fallback_title = re.sub(r'\s*\(\d{4}\)', '', db_sugs[0]).strip()
+                    fallback_title = re.sub(r'[:\-]', ' ', fallback_title)
+                    fallback_title = re.sub(r'\s+', ' ', fallback_title).strip()
+                    f_files, f_offset, f_total = await get_search_results(msg.chat.id, fallback_title, offset=0, filter=True)
+                    if f_files:
+                        db_files, db_offset, db_total = f_files, f_offset, f_total
+                        search_title = fallback_title
+
         if db_files:
             # Found in DB → show file list via auto_filter
             return await auto_filter(client, search_title, msg, reply_msg, vj_search)

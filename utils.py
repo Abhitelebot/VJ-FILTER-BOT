@@ -1100,7 +1100,7 @@ async def _get_web_suggestions_impl(query_str):
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
-                google_url = f"https://suggestqueries.google.com/complete/search?client=chrome&q={quote(clean_name)}"
+                google_url = f"https://suggestqueries.google.com/complete/search?client=chrome&q={quote(clean_name)}&gl=in&hl=en"
                 async with session.get(google_url, headers=headers, timeout=6) as response:
                     if response.status == 200:
                         data = await response.json(content_type=None)
