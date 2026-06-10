@@ -376,6 +376,11 @@ async def advantage_spoll_choker(bot, query):
             await k.delete()
         except:
             pass
+        if query.message.reply_to_message:
+            try:
+                await query.message.reply_to_message.delete()
+            except:
+                pass
 
 # Year 
 @Client.on_callback_query(filters.regex(r"^years#"))
@@ -2981,14 +2986,18 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                 if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await hehe.delete()
-                    if not spoll:
+                    try:
                         await message.delete()
+                    except:
+                        pass
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await hehe.delete()
-                if not spoll:
+                try:
                     await message.delete()
+                except:
+                    pass
         except (MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty):
             pic = imdb.get('poster')
             poster = pic.replace('.jpg', "._V1_UX360.jpg") 
@@ -3004,14 +3013,18 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await hmm.delete()
-                    if not spoll:
+                    try:
                         await message.delete()
+                    except:
+                        pass
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await hmm.delete()
-                if not spoll:
+                try:
                     await message.delete()
+                except:
+                    pass
         except Exception as e:
             logger.exception(e) 
             if spoll:
@@ -3022,14 +3035,18 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
                 if settings['auto_delete']:
                     await asyncio.sleep(300)
                     await fek.delete()
-                    if not spoll:
+                    try:
                         await message.delete()
+                    except:
+                        pass
             except KeyError:
                 await save_group_settings(message.chat.id, 'auto_delete', True)
                 await asyncio.sleep(300)
                 await fek.delete()
-                if not spoll:
+                try:
                     await message.delete()
+                except:
+                    pass
     else:
         if spoll:
             fuk = await client.send_message(chat_id=message.chat.id, text=cap, reply_markup=InlineKeyboardMarkup(btn), disable_web_page_preview=True)
@@ -3040,14 +3057,18 @@ async def auto_filter(client, name, msg, reply_msg, ai_search, spoll=False):
             if settings['auto_delete']:
                 await asyncio.sleep(300)
                 await fuk.delete()
-                if not spoll:
+                try:
                     await message.delete()
+                except:
+                    pass
         except KeyError:
             await save_group_settings(message.chat.id, 'auto_delete', True)
             await asyncio.sleep(300)
             await fuk.delete()
-            if not spoll:
+            try:
                 await message.delete()
+            except:
+                pass
 
 async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
     def is_same_movie(query_title, db_filename):
@@ -3158,6 +3179,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
                 await k.delete()
             except:
                 pass
+            try:
+                await msg.delete()
+            except:
+                pass
             return
 
     # ── Case 2: Spelling suggestion (0.4 <= ratio < 0.9) ──
@@ -3189,6 +3214,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             if settings['auto_delete']:
                 await asyncio.sleep(600)
                 await spell_check_del.delete()
+                try:
+                    await msg.delete()
+                except:
+                    pass
         except KeyError:
             grpid = await active_connection(str(msg.from_user.id))
             await save_group_settings(grpid, 'auto_delete', True)
@@ -3196,6 +3225,10 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
             if settings['auto_delete']:
                 await asyncio.sleep(600)
                 await spell_check_del.delete()
+                try:
+                    await msg.delete()
+                except:
+                    pass
         return
         
     else:
@@ -3206,6 +3239,11 @@ async def advantage_spell_chok(client, name, msg, reply_msg, vj_search):
         await asyncio.sleep(30)
         try:
             await k.delete()
+        except:
+            pass
+        try:
+            await msg.delete()
+            pass
         except:
             pass
         return
