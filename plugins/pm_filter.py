@@ -78,7 +78,7 @@ async def give_filter(client, message):
                     user_id = message.from_user.id if message.from_user else 0
                     user_name = (message.from_user.first_name or "User") if message.from_user else "User"
                     user_mention = f"<a href='tg://user?id={user_id}'>{_html.escape(user_name)}</a>"
-                    await save_movie_request(user_id, user_name, user_mention, search)
+                    await save_movie_request(user_id, user_name, user_mention, search, message_id=message.id)
                 except Exception as e:
                     print(f"Failed to auto-save movie request from SUPPORT_CHAT: {e}")
             return
@@ -435,7 +435,8 @@ async def movie_request_handler(bot, query):
         # 1️⃣ Save to DB
         try:
             from database.movie_requests import save_movie_request
-            await save_movie_request(user_id, user_name, user_mention, movie_name)
+            msg_id = query.message.reply_to_message.id if query.message and query.message.reply_to_message else None
+            await save_movie_request(user_id, user_name, user_mention, movie_name, message_id=msg_id)
         except Exception as e:
             logger.error(f"movie_request_handler: DB save failed: {e}")
 

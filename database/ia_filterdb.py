@@ -115,6 +115,8 @@ async def _notify_requesters(file_name: str):
             movie_name = req.get("movie_name", display_title)
             user_id = req.get("user_id")
 
+            message_id = req.get("message_id")
+
             notification_text = (
                 f"🎉 {user_mention}\n\n"
                 f"✅ Your requested movie <b>{html_mod.escape(movie_name)}</b> "
@@ -130,7 +132,8 @@ async def _notify_requesters(file_name: str):
                     chat_id=f"@{REQUEST_GROUP}",
                     text=notification_text,
                     reply_markup=InlineKeyboardMarkup(btn),
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
+                    reply_to_message_id=message_id
                 )
             except Exception as e:
                 logger.error(f"Failed to send upload notification for {movie_name}: {e}")

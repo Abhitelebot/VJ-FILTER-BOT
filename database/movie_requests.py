@@ -18,7 +18,7 @@ _req_db = _req_client[DATABASE_NAME]
 _requests_col = _req_db["movie_requests"]
 
 
-async def save_movie_request(user_id: int, user_first_name: str, user_mention: str, movie_name: str) -> str:
+async def save_movie_request(user_id: int, user_first_name: str, user_mention: str, movie_name: str, message_id: int = None) -> str:
     """
     Save a movie request. Returns the inserted _id as a string.
     """
@@ -27,6 +27,7 @@ async def save_movie_request(user_id: int, user_first_name: str, user_mention: s
         "user_first_name": user_first_name,
         "user_mention": user_mention,  # HTML mention e.g. <a href='tg://user?id=123'>Name</a>
         "movie_name": movie_name,
+        "message_id": message_id,
         "timestamp": datetime.utcnow(),
         "fulfilled": False,
     }
