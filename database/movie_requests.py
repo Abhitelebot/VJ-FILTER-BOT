@@ -34,41 +34,39 @@ async def save_movie_request(user_id: int, user_first_name: str, user_mention: s
     return str(result.inserted_id)
 
 
-async def get_pending_requests_for_movie(file_name: str):
+async def fetch_and_mark_pending_requests(file_name: str):
     """
-    Return all unfulfilled requests whose movie_name fuzzy-matches the uploaded file_name.
-    Used when a new file is indexed.
+    Return all unfulfilled requests whose movie_name fuzzy-matches the uploaded file_name,
+    and atomically marks them as fulfilled. This prevents duplicate notifications
+    when multiple files are uploaded concurrently.
     """
     from database.ia_filterdb import clean_movie_title
     cleaned_file = _clean(clean_movie_title(file_name))
 
     matching = []
+    ids_to_mark = []
+    
     cursor = _requests_col.find({"fulfilled": False})
     async for req in cursor:
         req_clean = _clean(req.get("movie_name", ""))
         ratio = difflib.SequenceMatcher(None, req_clean, cleaned_file).ratio()
         if ratio >= 0.75:
             matching.append(req)
-    return matching
-
-
-async def mark_requests_fulfilled(movie_name: str):
-    """Mark all unfulfilled requests matching movie_name as fulfilled."""
-    from database.ia_filterdb import clean_movie_title
-    cleaned_target = _clean(movie_name)
-    cursor = _requests_col.find({"fulfilled": False})
-    ids_to_mark = []
-    async for req in cursor:
-        req_clean = _clean(req.get("movie_name", ""))
-        ratio = difflib.SequenceMatcher(None, req_clean, cleaned_target).ratio()
-        if ratio >= 0.75:
             ids_to_mark.append(req["_id"])
-    if ids_to_mark:
-        await _requests_col.update_many(
-            {"_id": {"$in": ids_to_mark}},
-            {"$set": {"fulfilled": True}}
-        )
-    return len(ids_to_mark)
+            
+    if not ids_to_mark:
+        return []
+        
+    result = await _requests_col.update_many(
+        {"_id": {"$in": ids_to_mark}, "fulfilled": False},
+        {"$set": {"fulfilled": True}}
+    )
+    
+    # If no documents were modified, another concurrent task already fulfilled them
+    if result.modified_count == 0:
+        return []
+        
+    return matching
 
 
 async def get_request_by_id(request_id: str):

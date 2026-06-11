@@ -90,14 +90,14 @@ async def _notify_requesters(file_name: str):
     notify each requester in REQUEST_GROUP with a button to get the movie.
     """
     try:
-        from database.movie_requests import get_pending_requests_for_movie, mark_requests_fulfilled
-        from info import REQUEST_GROUP
+        from database.movie_requests import fetch_and_mark_pending_requests
+        from info import REQUEST_GROUP, NOTIFY_GROUP_LINK
         from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         from pyrogram.enums import ParseMode
         import html as html_mod
         import re as _re
 
-        matching = await get_pending_requests_for_movie(file_name)
+        matching = await fetch_and_mark_pending_requests(file_name)
         if not matching:
             return
 
@@ -121,11 +121,9 @@ async def _notify_requesters(file_name: str):
                 f"has been uploaded!\n\n"
                 f"Click the button below to get the movie 👇"
             )
-            # Truncate movie name for callback_data (max 64 bytes total)
-            safe_name = movie_name[:28].strip()
             btn = [[InlineKeyboardButton(
-                f"🎬 Get {movie_name}",
-                callback_data=f"getreq#{safe_name}#{user_id}"
+                "Search Here 🔍",
+                url=NOTIFY_GROUP_LINK
             )]]
             try:
                 await bot.send_message(
@@ -137,7 +135,6 @@ async def _notify_requesters(file_name: str):
             except Exception as e:
                 logger.error(f"Failed to send upload notification for {movie_name}: {e}")
 
-        await mark_requests_fulfilled(display_title)
     except Exception as e:
         logger.error(f"_notify_requesters error: {e}")
 

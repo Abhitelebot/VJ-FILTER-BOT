@@ -71,6 +71,16 @@ async def give_filter(client, message):
         search = message.text
         temp_files, temp_offset, total_results = await get_search_results(chat_id=message.chat.id, query=search.lower(), offset=0, filter=True)
         if total_results == 0:
+            if len(search) <= 60:
+                try:
+                    import html as _html
+                    from database.movie_requests import save_movie_request
+                    user_id = message.from_user.id if message.from_user else 0
+                    user_name = (message.from_user.first_name or "User") if message.from_user else "User"
+                    user_mention = f"<a href='tg://user?id={user_id}'>{_html.escape(user_name)}</a>"
+                    await save_movie_request(user_id, user_name, user_mention, search)
+                except Exception as e:
+                    print(f"Failed to auto-save movie request from SUPPORT_CHAT: {e}")
             return
         else:
             await message.reply_text(
